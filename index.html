@@ -399,6 +399,39 @@
     </button>
   </div>
 
+  <!-- Google Drive Backup -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📁 Google Drive Backup</div>
+    <label>Apps Script Webhook URL</label>
+    <input id="driveWebhookUrl" type="url"
+      placeholder="https://script.google.com/macros/s/..."
+      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:12px;font-family:monospace"
+      oninput="saveSetting('driveWebhook', this.value)">
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      Saves your full trade history (all instruments) as a JSON file in your Drive — a timestamped snapshot each time, plus a "latest.json" that's always current.<br>
+      <span style="color:var(--accent2);cursor:pointer" onclick="showDriveGuide()">▶ How to set up Drive Backup →</span>
+    </div>
+    <button onclick="testDriveWebhook()"
+      style="margin-top:10px;width:100%;padding:11px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
+      🧪 Test Connection
+    </button>
+    <button onclick="backupToDrive()"
+      style="margin-top:10px;width:100%;padding:11px;background:var(--green);border:none;border-radius:10px;color:#04150c;font-size:13px;font-weight:700;cursor:pointer">
+      ☁️ Backup Now
+    </button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Auto-backup weekly</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Also backs up whenever the Sunday weekly summary sends</div>
+      </div>
+      <div id="autoBackupToggle" onclick="toggleAutoBackup()"
+        style="width:46px;height:26px;border-radius:13px;background:var(--border);cursor:pointer;position:relative;transition:background 0.2s">
+        <div id="autoBackupThumb"
+          style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:white;transition:left 0.2s"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Telegram Bot Settings -->
   <div class="panel" style="margin-top:12px">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📬 Telegram Bot</div>
@@ -1916,6 +1949,7 @@ function sendWeeklySummary(silent = false) {
 
   sendTelegram(msg);
   if (!silent) showToast('Weekly summary sent!', 'buy');
+  if (settings.autoBackupOn) backupToDrive(true);
 }
 
 // ============================================================
@@ -2241,6 +2275,8 @@ function saveNote(tradeId, value) {
 const SETTINGS_KEY = 'tt_settings';
 let settings = {
   sheetsWebhook:   '',
+  driveWebhook:    '',
+  autoBackupOn:    false,
   autoSummaryOn:   false,
   autoSummaryTime: '20:00',
   tgBotToken:      '', // paste your bot token in Settings — don't hardcode it here
@@ -2259,6 +2295,9 @@ function loadSettings() {
   // Restore UI
   const urlInput = document.getElementById('sheetsWebhookUrl');
   if (urlInput) urlInput.value = settings.sheetsWebhook || '';
+
+  const driveUrlInput = document.getElementById('driveWebhookUrl');
+  if (driveUrlInput) driveUrlInput.value = settings.driveWebhook || '';
 
   const timeInput = document.getElementById('autoSummaryTime');
   if (timeInput) timeInput.value = settings.autoSummaryTime || '20:00';
@@ -2282,6 +2321,8 @@ function loadSettings() {
   applyAutoTpSlToggle();
 
   applySessionNewsToggle();
+
+  applyAutoBackupToggle();
 }
 
 function saveSetting(key, value) {
@@ -2471,6 +2512,90 @@ async function testSheetsWebhook() {
   } catch(e) {
     showToast('Connection failed', 'warn');
   }
+}
+
+function showSheetsGuide() {
+  alert(
+    'Google Sheets Setup:\n\n' +
+    '1. Create a new Google Sheet\n' +
+    '2. Extensions → Apps Script\n' +
+    '3. Paste a doPost(e) script that appends e.postData.contents as a row\n' +
+    '4. Deploy → New deployment → Web app\n' +
+    '5. Execute as "Me", access "Anyone"\n' +
+    '6. Copy the Web App URL into the field above'
+  );
+}
+
+// ============================================================
+//  GOOGLE DRIVE BACKUP
+// ============================================================
+function buildFullBackup() {
+  return {
+    exportedAt: new Date().toISOString(),
+    xau: state.xau,
+    btc: state.btc,
+    personalBests: state.records || {}
+  };
+}
+
+async function backupToDrive(silent = false) {
+  const webhook = settings.driveWebhook;
+  if (!webhook) {
+    if (!silent) showToast('Set up your Drive webhook URL first', 'warn');
+    return;
+  }
+
+  if (!silent) showToast('Backing up…', 'info');
+
+  try {
+    await fetch(webhook, {
+      method: 'POST',
+      mode:   'no-cors', // Apps Script requires no-cors, response is opaque
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildFullBackup())
+    });
+    if (!silent) showToast('Backed up to Drive ✓', 'buy');
+  } catch(e) {
+    console.error('Drive backup failed:', e);
+    if (!silent) showToast('Backup failed — check your webhook URL', 'warn');
+  }
+}
+
+async function testDriveWebhook() {
+  const webhook = document.getElementById('driveWebhookUrl').value.trim();
+  if (!webhook) { showToast('Paste your webhook URL first', 'warn'); return; }
+  saveSetting('driveWebhook', webhook);
+  await backupToDrive(false);
+}
+
+function applyAutoBackupToggle() {
+  const on    = settings.autoBackupOn;
+  const track = document.getElementById('autoBackupToggle');
+  const thumb = document.getElementById('autoBackupThumb');
+  if (!track) return;
+  track.style.background = on ? 'var(--green)' : 'var(--border)';
+  thumb.style.left       = on ? '23px' : '3px';
+}
+
+function toggleAutoBackup() {
+  settings.autoBackupOn = !settings.autoBackupOn;
+  saveSetting('autoBackupOn', settings.autoBackupOn);
+  applyAutoBackupToggle();
+  showToast(settings.autoBackupOn ? 'Weekly auto-backup ON' : 'Weekly auto-backup OFF',
+            settings.autoBackupOn ? 'buy' : 'warn');
+}
+
+function showDriveGuide() {
+  alert(
+    'Google Drive Backup Setup:\n\n' +
+    '1. Go to script.google.com → New project\n' +
+    '2. Paste in the drive_backup.gs code (ask Claude for it again if needed)\n' +
+    '3. Deploy → New deployment → Web app\n' +
+    '4. Execute as "Me", access "Anyone"\n' +
+    '5. Authorize when prompted\n' +
+    '6. Copy the Web App URL into the field above\n\n' +
+    'Backups save to a "TradeTracker Backups" folder in your Drive.'
+  );
 }
 
 async function testTelegramConnection() {
