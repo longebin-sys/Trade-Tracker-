@@ -2751,26 +2751,42 @@ function loadNewsCacheFromStorage() {
   } catch(e) {}
 }
 
+// The ForexFactory feed is built for server-side tools (MT4 EAs, Python
+// scripts) that don't hit CORS — browsers do. Try direct first, and if
+// that's blocked, fall back through public CORS proxies.
+const NEWS_FEED_ATTEMPTS = [
+  NEWS_FEED_URL,
+  'https://api.allorigins.win/raw?url=' + encodeURIComponent(NEWS_FEED_URL),
+  'https://corsproxy.io/?url=' + encodeURIComponent(NEWS_FEED_URL)
+];
+
 async function fetchNewsCalendar() {
-  try {
-    const res  = await fetch(NEWS_FEED_URL);
-    const data = await res.json();
-    newsCache = data
-      .filter(e => (e.country === 'USD' || e.currency === 'USD') &&
-                   e.impact && String(e.impact).toLowerCase() === 'high')
-      .map(e => ({ title: e.title || e.event || 'Event', time: new Date(e.date) }))
-      .filter(e => !isNaN(e.time.getTime()));
+  for (const url of NEWS_FEED_ATTEMPTS) {
     try {
-      localStorage.setItem('tt_news_cache', JSON.stringify({
-        fetchedAt: Date.now(),
-        events: newsCache.map(e => ({ title: e.title, time: e.time.toISOString() }))
-      }));
-    } catch(e) {}
-    return true;
-  } catch(e) {
-    console.error('News calendar fetch failed (CORS or offline?)', e);
-    return false;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!Array.isArray(data)) continue; // proxy sometimes wraps/errors — skip and try next
+
+      newsCache = data
+        .filter(e => (e.country === 'USD' || e.currency === 'USD') &&
+                     e.impact && String(e.impact).toLowerCase() === 'high')
+        .map(e => ({ title: e.title || e.event || 'Event', time: new Date(e.date) }))
+        .filter(e => !isNaN(e.time.getTime()));
+      try {
+        localStorage.setItem('tt_news_cache', JSON.stringify({
+          fetchedAt: Date.now(),
+          events: newsCache.map(e => ({ title: e.title, time: e.time.toISOString() }))
+        }));
+      } catch(e) {}
+      return true;
+    } catch(e) {
+      console.error(`News calendar fetch failed via ${url}`, e);
+      // try the next one in the chain
+    }
   }
+  console.error('News calendar unreachable via direct fetch and all proxy fallbacks');
+  return false;
 }
 
 let firedNewsAlerts = new Set();
