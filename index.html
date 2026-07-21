@@ -473,29 +473,6 @@
     </div>
   </div>
 
-  <!-- Auto Signal Bot -->
-  <div class="panel" style="margin-top:12px">
-    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">🤖 Auto Signal Bot</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div>
-        <div style="font-size:13px;font-weight:600">Auto-log signals</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Polls signal_bot.py and logs trades automatically</div>
-      </div>
-      <div id="autoSignalToggle" onclick="toggleAutoSignal()"
-        style="width:46px;height:26px;border-radius:13px;background:var(--border);cursor:pointer;position:relative;transition:background 0.2s">
-        <div id="autoSignalThumb"
-          style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:white;transition:left 0.2s"></div>
-      </div>
-    </div>
-    <label>Signal server URL</label>
-    <input id="autoSignalUrl" type="url" value="http://127.0.0.1:8765/latest-signal"
-      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:12px;font-family:monospace"
-      oninput="saveSetting('autoSignalUrl', this.value)">
-    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
-      Leave signal_bot.py running and this page open in the background. Lot size still comes from whatever you have set per trade -- only side, entry, SL and TP are taken from the signal.
-    </div>
-  </div>
-
   <!-- Weekend Auto-Summary -->
   <div class="panel" style="margin-top:12px">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📅 Auto Weekly Summary</div>
@@ -1028,9 +1005,9 @@ function confirmTrade() {
   closeTradeModal();
 }
 
-// Shared trade-creation logic used by both the manual modal (confirmTrade)
-// and the automatic signal-bot path (checkForAutoSignal). Keeping this in
-// one place means both paths always save/render/notify identically.
+// Shared trade-creation logic used by the manual open modal, and by
+// any other caller (e.g. a future auto-import) that wants to log a
+// trade through the same save/render/notify path.
 function createTrade(instKey, side, entry, sl, tp) {
   const inst = INSTRUMENTS[instKey];
   const s    = state[instKey];
@@ -2266,8 +2243,6 @@ let settings = {
   sheetsWebhook:   '',
   autoSummaryOn:   false,
   autoSummaryTime: '20:00',
-  autoSignalUrl:   'http://127.0.0.1:8765/latest-signal',
-  autoSignalOn:    true,
   tgBotToken:      '', // paste your bot token in Settings — don't hardcode it here
   tgChatId:        '@wanpis_t_official',
   tgChatId2:       '',
@@ -2288,9 +2263,6 @@ function loadSettings() {
   const timeInput = document.getElementById('autoSummaryTime');
   if (timeInput) timeInput.value = settings.autoSummaryTime || '20:00';
 
-  const signalUrlInput = document.getElementById('autoSignalUrl');
-  if (signalUrlInput) signalUrlInput.value = settings.autoSignalUrl || '';
-
   // Telegram
   const tgTokenInput = document.getElementById('tgBotToken');
   if (tgTokenInput) tgTokenInput.value = settings.tgBotToken || '';
@@ -2303,8 +2275,6 @@ function loadSettings() {
   TG_TOKEN = settings.tgBotToken || '';
   TG_CHAT_ID = settings.tgChatId || '@wanpis_t_official';
   TG_CHAT_ID2 = settings.tgChatId2 || '';
-
-  applyAutoSignalToggle();
 
   applyAutoSummaryToggle();
   rescheduleAutoSummary();
@@ -2322,23 +2292,6 @@ function saveSetting(key, value) {
 // ============================================================
 //  AUTO SUMMARY TOGGLE
 // ============================================================
-function applyAutoSignalToggle() {
-  const on    = settings.autoSignalOn;
-  const track = document.getElementById('autoSignalToggle');
-  const thumb = document.getElementById('autoSignalThumb');
-  if (!track) return;
-  track.style.background = on ? 'var(--green)' : 'var(--border)';
-  thumb.style.left       = on ? '23px' : '3px';
-}
-
-function toggleAutoSignal() {
-  settings.autoSignalOn = !settings.autoSignalOn;
-  saveSetting('autoSignalOn', settings.autoSignalOn);
-  applyAutoSignalToggle();
-  showToast(settings.autoSignalOn ? 'Auto signal bot ON' : 'Auto signal bot OFF',
-            settings.autoSignalOn ? 'buy' : 'warn');
-}
-
 function applyAutoSummaryToggle() {
   const on    = settings.autoSummaryOn;
   const track = document.getElementById('autoSummaryToggle');
@@ -2752,12 +2705,15 @@ function loadNewsCacheFromStorage() {
 }
 
 // The ForexFactory feed is built for server-side tools (MT4 EAs, Python
-// scripts) that don't hit CORS — browsers do. Try direct first, and if
-// that's blocked, fall back through public CORS proxies.
+// scripts) that don't hit CORS — browsers do. Try direct first, then
+// public CORS proxies, then finally a same-origin cache file (produced
+// server-side by a GitHub Actions workflow — see fetch_news_cache.py —
+// which never has a CORS problem to begin with, since it's Python).
 const NEWS_FEED_ATTEMPTS = [
   NEWS_FEED_URL,
   'https://api.allorigins.win/raw?url=' + encodeURIComponent(NEWS_FEED_URL),
-  'https://corsproxy.io/?url=' + encodeURIComponent(NEWS_FEED_URL)
+  'https://corsproxy.io/?url=' + encodeURIComponent(NEWS_FEED_URL),
+  './news_cache.json'
 ];
 
 async function fetchNewsCalendar() {
@@ -2868,72 +2824,11 @@ async function testNewsFeed() {
   }
 }
 
-// ============================================================
-//  AUTO-SIGNAL (signal_bot.py integration)
-// ============================================================
-// signal_bot.py runs a tiny local HTTP server (on the same phone, via
-// Termux) that exposes whatever the most recently-detected screenshot
-// signal was, as JSON, at settings.autoSignalUrl. While this page is open
-// in the background, it polls that endpoint every few seconds. When a
-// signal shows up that hasn't been logged yet, it's auto-created as an
-// open trade using the same createTrade() path as a manual entry --
-// lot size still comes from whatever you have configured for the
-// instrument, nothing about manual trading changes.
-//
-// Expected JSON shape from the server:
-//   { "id": "<unique id, e.g. a timestamp>", "side": "BUY"|"SELL",
-//     "entry": 4156.35, "sl": 4160.04, "tp1": 4166.35, "tp2": 4176.35 }
-// "id" is required and must change for every new signal -- it's how we
-// avoid double-logging the same signal across repeated polls.
-
-let lastAutoSignalId = null;
-let autoSignalTimer  = null;
-
-async function checkForAutoSignal() {
-  if (!settings.autoSignalOn || !settings.autoSignalUrl) return;
-
-  try {
-    const res = await fetch(settings.autoSignalUrl, { cache: 'no-store' });
-    if (!res.ok) return;
-    const signal = await res.json();
-    if (!signal || !signal.id) return;
-    if (signal.id === lastAutoSignalId) return; // already logged this one
-
-    lastAutoSignalId = signal.id;
-
-    const side = (signal.side || '').toUpperCase();
-    if (side !== 'BUY' && side !== 'SELL') {
-      console.warn('Auto-signal: unrecognized side', signal);
-      return;
-    }
-    const entry = parseFloat(signal.entry);
-    const sl    = parseFloat(signal.sl);
-    if (!isFinite(entry) || !isFinite(sl)) {
-      console.warn('Auto-signal: bad entry/sl', signal);
-      return;
-    }
-    const tp = signal.tp1 !== undefined ? parseFloat(signal.tp1) : null;
-
-    // This tracker is gold-only, so auto signals always log to 'xau'.
-    createTrade('xau', side, entry, sl, tp);
-    showToast(`Auto-logged ${side} @ ${entry}`, side.toLowerCase());
-  } catch (e) {
-    // Server not running / unreachable -- stay silent, this polls
-    // constantly and a missing local server shouldn't spam toasts.
-  }
-}
-
-function startAutoSignalPolling() {
-  if (autoSignalTimer) clearInterval(autoSignalTimer);
-  autoSignalTimer = setInterval(checkForAutoSignal, 4000);
-}
-
 window.onload = () => {
   loadData();
   loadSettings();
   startElapsedTimer();
   handleDeepLink();
-  startAutoSignalPolling();
   startPriceTracking();
 };
 </script>
