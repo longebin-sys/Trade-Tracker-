@@ -7,7 +7,7 @@
 const CACHE_NAME = 'tradetracker-v1';
 const APP_SHELL = [
   './',
-  './TradeTracker_Fixed.html',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'

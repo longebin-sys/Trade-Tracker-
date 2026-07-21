@@ -1,0 +1,2912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Trade Tracker</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TradeTracker">
+<meta name="theme-color" content="#0a0f1e">
+<link rel="manifest" href="manifest.json">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg:      #0a0f1e;
+    --card:    #111c2e;
+    --card2:   #162032;
+    --border:  #1e3a5f;
+    --accent:  #2e86de;
+    --accent2: #54a0ff;
+    --green:   #00d2a4;
+    --red:     #ff5e7a;
+    --warn:    #ff9f43;
+    --gold:    #f9ca24;
+    --btc:     #f7931a;
+    --text:    #e8f4fd;
+    --muted:   #7a9bbf;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 430px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+  }
+
+  /* ---- Top nav: 3 tabs ---- */
+  .tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+  .tab { flex: 1; padding: 14px 0; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ---- Instrument pill toggle ---- */
+  .instrument-toggle { display: flex; gap: 8px; margin: 14px 20px 0; }
+  .inst-btn { flex: 1; padding: 10px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--card2); color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 0.05em; }
+  .inst-btn.active-gold  { border-color: var(--gold); color: var(--gold); background: rgba(249,202,36,0.08); }
+  .inst-btn.active-btc   { border-color: var(--btc);  color: var(--btc);  background: rgba(247,147,26,0.08); }
+
+  .header { padding: 16px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+  .header-title { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .header-date  { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+
+  .summary-card {
+    margin: 12px 20px 0;
+    background: linear-gradient(135deg, #0d1f38, #162032);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .summary-main { font-size: 40px; font-weight: 700; font-family: 'JetBrains Mono', monospace; margin: 6px 0; }
+  .summary-sub  { font-size: 13px; color: var(--muted); }
+
+  .panel { margin: 10px 20px 0; background: var(--card2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
+
+  .trade-btns { margin: 16px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .trade-btn { border: none; border-radius: 16px; padding: 24px 0; cursor: pointer; font-size: 18px; font-weight: 800; color: white; }
+  .trade-btn.buy  { background: linear-gradient(135deg, #0d4a35, #00d2a4); }
+  .trade-btn.sell { background: linear-gradient(135deg, #4a0d1f, #ff5e7a); }
+
+  .trade-log-item { background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; position: relative; }
+  .close-btn { position: absolute; top: 12px; right: 12px; background: var(--red); color: white; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .inst-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-left: 6px; vertical-align: middle; }
+  .inst-tag.XAU { background: rgba(249,202,36,0.15); color: var(--gold); }
+  .inst-tag.BTC { background: rgba(247,147,26,0.15); color: var(--btc); }
+
+  .pnl.positive { color: var(--green); }
+  .pnl.negative { color: var(--red); }
+
+  /* ---- Modals ---- */
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-content { background: var(--card2); width: 92%; max-width: 380px; border-radius: 18px; padding: 24px; }
+  .modal input { width: 100%; padding: 14px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 12px; font-size: 20px; font-family: monospace; margin-top: 6px; }
+  label { font-size: 13px; color: var(--muted); }
+
+  .modal-btns { display: flex; gap: 12px; margin-top: 24px; }
+  .modal-btns button { flex: 1; padding: 14px; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; }
+  .btn-cancel { background: #333; color: white; }
+  .btn-confirm { background: var(--accent2); color: #0a0f1e; }
+
+  /* ---- Tracker ---- */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 20px 0; }
+  .stat-box { background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; text-align: center; }
+  .stat-val { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
+  .stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .trade-history-item { background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+  /* ---- Monthly P/L Calendar ---- */
+  .calendar-card {
+    margin: 14px 20px 0;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .calendar-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+  .cal-nav {
+    background: none; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-month-label {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text);
+  }
+  .cal-dow-row {
+    display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; margin-bottom: 3px;
+  }
+  .cal-dow {
+    text-align: center; font-size: 10px; font-weight: 700;
+    color: var(--muted); letter-spacing: 0.05em; padding-bottom: 4px;
+  }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .cal-day {
+    aspect-ratio: 1; border-radius: 7px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; cursor: default;
+    font-size: 10px; font-weight: 600; position: relative;
+    background: var(--bg); border: 1px solid transparent;
+    transition: transform 0.1s;
+  }
+  .cal-day.empty { background: transparent; border-color: transparent; }
+  .cal-day.today { border-color: var(--accent2); }
+  .cal-day.win   { background: rgba(0,210,164,0.18); border-color: rgba(0,210,164,0.3); color: var(--green); }
+  .cal-day.loss  { background: rgba(255,94,122,0.18); border-color: rgba(255,94,122,0.3); color: var(--red); }
+  .cal-day.flat  { background: rgba(84,160,255,0.1); border-color: rgba(84,160,255,0.2); color: var(--muted); }
+  .cal-day .cal-num { font-size: 11px; font-weight: 700; line-height: 1; }
+  .cal-day .cal-pnl { font-size: 8px; font-weight: 600; line-height: 1; margin-top: 2px; opacity: 0.9; }
+  .cal-legend {
+    display: flex; gap: 14px; justify-content: center; margin-top: 10px;
+    font-size: 10px; color: var(--muted); font-weight: 600;
+  }
+  .cal-legend span { display: flex; align-items: center; gap: 4px; }
+  .cal-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .side-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+  .side-badge.BUY  { background: rgba(0,210,164,0.15); color: var(--green); }
+  .side-badge.SELL { background: rgba(255,94,122,0.15); color: var(--red); }
+
+  /* ---- Tracker filter pills ---- */
+  .filter-pills { display: flex; gap: 8px; margin: 14px 20px 0; }
+  .pill { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--card2); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .pill.active { border-color: var(--accent2); color: var(--accent2); background: rgba(84,160,255,0.1); }
+
+  .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); padding: 12px 26px; border-radius: 30px; font-weight: 700; opacity: 0; transition: all 0.3s; z-index: 9999; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  /* ---- Swipe to delete ---- */
+  .swipe-wrapper { position: relative; overflow: hidden; border-radius: 12px; margin-bottom: 10px; }
+  .delete-bg {
+    position: absolute; inset: 0; background: var(--red);
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 20px; border-radius: 12px;
+    font-size: 13px; font-weight: 700; color: white; gap: 6px;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .delete-bg.visible { opacity: 1; }
+  .swipe-wrapper .trade-log-item {
+    margin-bottom: 0;
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+    will-change: transform;
+    position: relative; z-index: 1;
+  }
+  .swipe-wrapper.swiped .trade-log-item { transform: translateX(-80px); }
+
+  /* ---- Notes field ---- */
+  .notes-input {
+    width: 100%; margin-top: 10px; padding: 8px 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; font-size: 12px;
+    font-family: 'Inter', sans-serif; resize: none;
+    line-height: 1.4;
+  }
+  .notes-input::placeholder { color: var(--muted); }
+  .notes-input:focus { outline: none; border-color: var(--accent2); }
+  .trade-note-display {
+    margin-top: 7px; font-size: 12px; color: var(--muted);
+    font-style: italic; border-left: 2px solid var(--border);
+    padding-left: 8px; line-height: 1.4;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ======== TOP TABS ======== -->
+<div class="tabs">
+  <div class="tab active" id="tab-xau" onclick="switchTab('xau')">🥇 XAUUSD</div>
+  <div class="tab" id="tab-btc" onclick="switchTab('btc')">₿ BTCUSD</div>
+  <div class="tab" id="tab-tracker" onclick="switchTab('tracker')">🎯 Tracker</div>
+  <div class="tab" id="tab-settings" onclick="switchTab('settings')">⚙️</div>
+</div>
+
+<!-- ======== TRADE PAGE (shared, re-rendered per instrument) ======== -->
+<div class="page active" id="page-trade">
+  <div class="header">
+    <span class="header-title" id="tradePageTitle">XAUUSD Logger</span>
+    <span class="header-date" id="tradeDate"></span>
+  </div>
+
+  <!-- Live price bar -->
+  <div class="panel" style="margin-bottom:12px;padding:10px 14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em" id="livePriceBarLabel">XAUUSD Live Price</div>
+      <div style="font-size:10px;color:var(--muted)" id="livePriceBarUpdated">—</div>
+    </div>
+    <div style="font-size:24px;font-weight:700;font-family:monospace;margin-top:2px" id="livePriceBarValue">—</div>
+  </div>
+
+  <div class="summary-card">
+    <div style="font-size:12px;color:var(--muted)">TODAY'S SUMMARY</div>
+    <div class="summary-main" id="summaryTrades">0</div>
+    <div class="summary-sub" id="summaryPnl">$0.00</div>
+  </div>
+
+  <!-- Lot size -->
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>Lot Size</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="changeLot(-1)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer;font-size:16px">−</button>
+        <input id="lotSize" type="number" min="0.01" max="10000" step="0.01" value="0.10"
+          oninput="saveLotSize()"
+          style="width:90px;background:var(--bg);color:var(--text);padding:8px 6px;border-radius:8px;border:1px solid var(--border);font-family:monospace;font-size:15px;font-weight:600;text-align:center">
+        <button onclick="changeLot(1)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer;font-size:16px">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Default SL -->
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>Default SL (pips)</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="changeDefaultPips(-50)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer">−</button>
+        <div id="defaultPips" style="font-family:monospace;min-width:50px;text-align:center;font-weight:600">300</div>
+        <button onclick="changeDefaultPips(50)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer">+</button>
+      </div>
+    </div>
+    <div id="pipValueInfo" style="margin-top:10px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px"></div>
+  </div>
+
+  <div class="trade-btns">
+    <button class="trade-btn buy"  onclick="openTradeModal('BUY')">BUY ▲</button>
+    <button class="trade-btn sell" onclick="openTradeModal('SELL')">SELL ▼</button>
+  </div>
+
+
+  <div style="margin:0 20px">
+    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">RECENT TRADES</div>
+    <div id="tradeLogList"></div>
+  </div>
+</div>
+
+<!-- ======== TRACKER PAGE ======== -->
+<div class="page" id="page-tracker">
+  <div class="header">
+    <span class="header-title">📈 Performance</span>
+    <span class="header-date" id="trackerDate"></span>
+  </div>
+
+  <!-- Instrument filter -->
+  <div class="filter-pills">
+    <div class="pill active" id="pill-all" onclick="setTrackerFilter('all')">All</div>
+    <div class="pill" id="pill-xau" onclick="setTrackerFilter('xau')">🥇 XAUUSD</div>
+    <div class="pill" id="pill-btc" onclick="setTrackerFilter('btc')">₿ BTCUSD</div>
+  </div>
+
+  <!-- Date range filter -->
+  <div class="filter-pills" style="margin-top:8px">
+    <div class="pill active" id="range-all"   onclick="setDateRange('all')">All Time</div>
+    <div class="pill"        id="range-today" onclick="setDateRange('today')">Today</div>
+    <div class="pill"        id="range-week"  onclick="setDateRange('week')">This Week</div>
+    <div class="pill"        id="range-month" onclick="setDateRange('month')">This Month</div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-box"><div class="stat-val" id="statTotal" style="color:var(--accent2)">0</div><div class="stat-lbl">Total Trades</div></div>
+    <div class="stat-box"><div class="stat-val" id="statWinRate" style="color:var(--green)">0%</div><div class="stat-lbl">Win Rate</div></div>
+    <div class="stat-box"><div class="stat-val" id="statTotalPnl">$0</div><div class="stat-lbl">Total P/L</div></div>
+    <div class="stat-box"><div class="stat-val" id="statAvgPnl">$0</div><div class="stat-lbl">Avg P/L</div></div>
+    <div class="stat-box"><div class="stat-val" id="statBestTrade" style="color:var(--green)">$0</div><div class="stat-lbl">Best Trade</div></div>
+    <div class="stat-box"><div class="stat-val" id="statWorstTrade" style="color:var(--red)">$0</div><div class="stat-lbl">Worst Trade</div></div>
+    <div class="stat-box"><div class="stat-val" id="statProfitFactor" style="color:var(--accent2)">—</div><div class="stat-lbl">Profit Factor</div></div>
+    <div class="stat-box">
+      <div class="stat-val" id="statStreak" style="color:var(--accent2)">—</div>
+      <div class="stat-lbl" id="statStreakLbl">Cur. Streak</div>
+    </div>
+    <div class="stat-box"><div class="stat-val" id="statAvgHoldWin" style="color:var(--green)">—</div><div class="stat-lbl">Avg Hold (Wins)</div></div>
+    <div class="stat-box"><div class="stat-val" id="statAvgHoldLoss" style="color:var(--red)">—</div><div class="stat-lbl">Avg Hold (Losses)</div></div>
+  </div>
+
+  <!-- Streak detail row -->
+  <div style="margin:10px 20px 0;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+    <div style="text-align:center;flex:1">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Max Win Streak</div>
+      <div id="statMaxWin" style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)">0</div>
+    </div>
+    <div style="width:1px;background:var(--border);align-self:stretch"></div>
+    <div style="text-align:center;flex:1">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Max Loss Streak</div>
+      <div id="statMaxLoss" style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--red)">0</div>
+    </div>
+  </div>
+
+  <!-- Monthly P/L Calendar -->
+  <div class="calendar-card">
+    <div class="calendar-header">
+      <button class="cal-nav" onclick="calShift(-1)">‹</button>
+      <div class="cal-month-label" id="calMonthLabel"></div>
+      <button class="cal-nav" onclick="calShift(1)">›</button>
+    </div>
+    <div class="cal-dow-row">
+      <div class="cal-dow">S</div><div class="cal-dow">M</div><div class="cal-dow">T</div>
+      <div class="cal-dow">W</div><div class="cal-dow">T</div><div class="cal-dow">F</div>
+      <div class="cal-dow">S</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legend">
+      <span><div class="cal-dot" style="background:rgba(0,210,164,0.5)"></div> Profit</span>
+      <span><div class="cal-dot" style="background:rgba(255,94,122,0.5)"></div> Loss</span>
+      <span><div class="cal-dot" style="background:rgba(84,160,255,0.2)"></div> Flat/No trades</span>
+    </div>
+  </div>
+
+  <!-- Telegram Summaries -->
+  <div style="margin:16px 20px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <button onclick="sendDailySummary()" style="padding:15px 0;background:linear-gradient(135deg,#1a2a4a,#2e86de);border:1px solid var(--accent2);border-radius:14px;color:white;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.03em">
+      📊 Daily Summary
+    </button>
+    <button onclick="sendWeeklySummary()" style="padding:15px 0;background:linear-gradient(135deg,#1a3a2a,#00d2a4);border:1px solid var(--green);border-radius:14px;color:#0a0f1e;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.03em">
+      📅 Weekly Summary
+    </button>
+  </div>
+
+  <!-- Export CSV -->
+  <div style="margin:10px 20px 0;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:14px 16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">📥 Export Trades</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button onclick="exportCSV('all')"
+        style="padding:13px 0;background:linear-gradient(135deg,#0d3a1f,#00d2a4);border:none;border-radius:10px;color:#0a0f1e;font-size:13px;font-weight:700;cursor:pointer">
+        ⬇ All Trades
+      </button>
+      <button onclick="exportCSV('today')"
+        style="padding:13px 0;background:linear-gradient(135deg,#2a1a0d,#f9ca24);border:none;border-radius:10px;color:#0a0f1e;font-size:13px;font-weight:700;cursor:pointer">
+        ⬇ Today Only
+      </button>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.6">
+      Compatible with Excel, Google Sheets &amp; TradingView journal importer.<br>
+      Columns: Date, Time, Instrument, Side, Entry, Exit, SL, Lot, P/L, Duration, Result, Notes.
+    </div>
+  </div>
+
+  <div style="margin:18px 20px 8px;font-size:12px;font-weight:600;color:var(--muted)">CLOSED TRADES</div>
+  <div style="margin:0 20px" id="closedTradesList"></div>
+</div>
+
+<!-- ======== SETTINGS PAGE ======== -->
+<div class="page" id="page-settings">
+  <div class="header">
+    <span class="header-title">⚙️ Settings</span>
+  </div>
+
+  <!-- Google Sheets Webhook -->
+  <div class="panel" style="margin-top:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📊 Google Sheets Sync</div>
+    <label>Apps Script Webhook URL</label>
+    <input id="sheetsWebhookUrl" type="url"
+      placeholder="https://script.google.com/macros/s/..."
+      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:12px;font-family:monospace"
+      oninput="saveSetting('sheetsWebhook', this.value)">
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      Every trade open &amp; close is pushed to your sheet instantly.<br>
+      <span style="color:var(--accent2);cursor:pointer" onclick="showSheetsGuide()">▶ How to set up Google Sheets →</span>
+    </div>
+    <button onclick="testSheetsWebhook()"
+      style="margin-top:10px;width:100%;padding:11px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
+      🧪 Test Connection
+    </button>
+  </div>
+
+  <!-- Telegram Bot Settings -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📬 Telegram Bot</div>
+    <label>Bot Token</label>
+    <input id="tgBotToken" type="password" 
+      placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:12px;font-family:monospace"
+      oninput="saveSetting('tgBotToken', this.value); TG_TOKEN = this.value;">
+    <label style="margin-top:12px;display:block">Chat ID (e.g. @username or -1001234567890)</label>
+    <input id="tgChatId" type="text" 
+      value="@wanpis_t_official"
+      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:12px;font-family:monospace"
+      oninput="saveSetting('tgChatId', this.value); TG_CHAT_ID = this.value;">
+    <label style="margin-top:12px;display:block">Second Chat ID (optional)</label>
+    <input id="tgChatId2" type="text" 
+      placeholder="@another_channel or -1009876543210"
+      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:12px;font-family:monospace"
+      oninput="saveSetting('tgChatId2', this.value); TG_CHAT_ID2 = this.value;">
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      Get token from <a href="https://t.me/BotFather" target="_blank" style="color:var(--accent2)">@BotFather</a>.<br>
+      For private group/channel use the numeric ID. Leave the second Chat ID blank if you only post to one place — every signal, update, and close message goes to both when it's filled in.
+    </div>
+    <button onclick="testTelegramConnection()"
+      style="margin-top:10px;width:100%;padding:11px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
+      🧪 Test Telegram
+    </button>
+  </div>
+
+  <!-- Auto TP/SL Tracking -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">🎯 Auto TP/SL Tracking</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Auto-close on TP/SL hit</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Live price from OKX (XAUT/BTC-USDT), checks every 15s</div>
+      </div>
+      <div id="autoTpSlToggle" onclick="toggleAutoTpSl()"
+        style="width:46px;height:26px;border-radius:13px;background:var(--border);cursor:pointer;position:relative;transition:background 0.2s">
+        <div id="autoTpSlThumb"
+          style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:white;transition:left 0.2s"></div>
+      </div>
+    </div>
+    <div id="livePriceRow" style="display:flex;gap:10px;font-size:12px;font-family:monospace;color:var(--muted)">
+      <div>🥇 XAU: <span id="livePriceXau" style="color:var(--text);font-weight:700">—</span></div>
+      <div>₿ BTC: <span id="livePriceBtc" style="color:var(--text);font-weight:700">—</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      Gold price is tracked via OKX's XAUT-USDT (Tether Gold) pair as a proxy for spot XAUUSD — it can drift a little from your broker's price, so treat exact fills as approximate. Only checked while this page is open.
+    </div>
+  </div>
+
+  <!-- Sessions & News Alerts -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📅 Sessions & News Alerts</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Session/news alerts</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Market open/close, session opens, overlaps, USD high-impact news</div>
+      </div>
+      <div id="sessionNewsToggle" onclick="toggleSessionNews()"
+        style="width:46px;height:26px;border-radius:13px;background:var(--border);cursor:pointer;position:relative;transition:background 0.2s">
+        <div id="sessionNewsThumb"
+          style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:white;transition:left 0.2s"></div>
+      </div>
+    </div>
+    <button onclick="testNewsFeed()"
+      style="width:100%;padding:11px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
+      🔄 Test News Feed
+    </button>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      Times shown assume you're at GMT+10. Daily "High Impact Today" summary sends at 8:00 AM local, and each event also gets its own alert 10 minutes before release. USD, High impact only.
+    </div>
+  </div>
+
+  <!-- Auto Signal Bot -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">🤖 Auto Signal Bot</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Auto-log signals</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Polls signal_bot.py and logs trades automatically</div>
+      </div>
+      <div id="autoSignalToggle" onclick="toggleAutoSignal()"
+        style="width:46px;height:26px;border-radius:13px;background:var(--border);cursor:pointer;position:relative;transition:background 0.2s">
+        <div id="autoSignalThumb"
+          style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:white;transition:left 0.2s"></div>
+      </div>
+    </div>
+    <label>Signal server URL</label>
+    <input id="autoSignalUrl" type="url" value="http://127.0.0.1:8765/latest-signal"
+      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:12px;font-family:monospace"
+      oninput="saveSetting('autoSignalUrl', this.value)">
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      Leave signal_bot.py running and this page open in the background. Lot size still comes from whatever you have set per trade -- only side, entry, SL and TP are taken from the signal.
+    </div>
+  </div>
+
+  <!-- Weekend Auto-Summary -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📅 Auto Weekly Summary</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Send every Sunday</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Fires to Telegram automatically</div>
+      </div>
+      <div id="autoSummaryToggle" onclick="toggleAutoSummary()"
+        style="width:46px;height:26px;border-radius:13px;background:var(--border);cursor:pointer;position:relative;transition:background 0.2s">
+        <div id="autoSummaryThumb"
+          style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:white;transition:left 0.2s"></div>
+      </div>
+    </div>
+    <label>Send at (your local time)</label>
+    <input id="autoSummaryTime" type="time" value="20:00"
+      style="width:100%;margin-top:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;font-size:15px;font-family:monospace"
+      oninput="saveSetting('autoSummaryTime', this.value); rescheduleAutoSummary()">
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)" id="nextSummaryLabel"></div>
+  </div>
+
+  <!-- Home Screen Shortcuts -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📱 Home Screen Shortcuts</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px">
+      Add quick-launch bookmarks to your home screen. Opening them jumps directly to BUY or SELL.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button onclick="copyShortcut('buy')"
+        style="padding:13px 0;background:linear-gradient(135deg,#0d4a35,#00d2a4);border:none;border-radius:10px;color:#0a0f1e;font-size:13px;font-weight:700;cursor:pointer">
+        📋 Copy BUY Link
+      </button>
+      <button onclick="copyShortcut('sell')"
+        style="padding:13px 0;background:linear-gradient(135deg,#4a0d1f,#ff5e7a);border:none;border-radius:10px;color:white;font-size:13px;font-weight:700;cursor:pointer">
+        📋 Copy SELL Link
+      </button>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.6">
+      1. Copy the link above<br>
+      2. Open it in Safari / Chrome<br>
+      3. Share → Add to Home Screen<br>
+      4. Tap the icon → opens straight to BUY/SELL modal
+    </div>
+  </div>
+
+  <!-- Google Sheets Setup Guide Modal trigger -->
+</div>
+
+<!-- ======== SHEETS GUIDE MODAL ======== -->
+<div id="sheetsGuideModal" class="modal">
+  <div class="modal-content" style="max-height:85vh;overflow-y:auto">
+    <h3 style="margin-bottom:16px">📊 Google Sheets Setup</h3>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8">
+      <b style="color:var(--text)">1.</b> Open Google Sheets → create a new spreadsheet<br>
+      <b style="color:var(--text)">2.</b> Go to <b style="color:var(--accent2)">Extensions → Apps Script</b><br>
+      <b style="color:var(--text)">3.</b> Paste this code:<br>
+    </div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin:10px 0;font-size:11px;font-family:monospace;color:var(--green);line-height:1.6;overflow-x:auto;white-space:pre-wrap">function doPost(e) {
+  const data = JSON.parse(e.postData.contents);
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName('Trades') ||
+    SpreadsheetApp.getActiveSpreadsheet()
+    .insertSheet('Trades');
+
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Date','Time','Instrument',
+      'Side','Entry','Exit','SL','Lot',
+      'P/L','Pips','Status','Duration','Note']);
+  }
+  sheet.appendRow([
+    data.date, data.time, data.inst,
+    data.side, data.entry, data.exit || '',
+    data.sl, data.lot, data.pnl || '',
+    data.pips || '', data.status,
+    data.duration || '', data.note || ''
+  ]);
+  return ContentService
+    .createTextOutput('OK');
+}</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8">
+      <b style="color:var(--text)">4.</b> Click <b style="color:var(--accent2)">Deploy → New deployment</b><br>
+      <b style="color:var(--text)">5.</b> Type: <b>Web app</b> · Execute as: <b>Me</b> · Access: <b>Anyone</b><br>
+      <b style="color:var(--text)">6.</b> Copy the deployment URL and paste it into Settings
+    </div>
+    <button onclick="document.getElementById('sheetsGuideModal').style.display='none'"
+      style="margin-top:20px;width:100%;padding:14px;background:var(--accent2);border:none;border-radius:12px;color:#0a0f1e;font-weight:700;cursor:pointer;font-size:14px">
+      Got It
+    </button>
+  </div>
+</div>
+
+<!-- ======== OPEN TRADE MODAL ======== -->
+<div id="tradeModal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle">New BUY Trade</h3>
+    <div style="font-size:12px;color:var(--muted);margin:4px 0 16px" id="modalInst"></div>
+    <div style="margin-bottom:14px"><label>Entry Price</label><input id="entryPrice" type="number" step="any"></div>
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <label>Stop Loss</label>
+        <span id="slLockBtn" onclick="toggleSLLock()"
+          style="font-size:11px;font-weight:700;color:var(--accent2);cursor:pointer;padding:2px 8px;border:1px solid var(--accent2);border-radius:20px;letter-spacing:0.04em">
+          🔒 AUTO
+        </span>
+      </div>
+      <input id="tradeSL" type="number" step="any" readonly style="opacity:0.5;cursor:not-allowed">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeTradeModal()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmTrade()">OPEN TRADE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== CLOSE TRADE MODAL ======== -->
+<div id="closeModal" class="modal">
+  <div class="modal-content">
+    <h3 id="closeModalTitle">Close Trade</h3>
+    <div style="font-size:13px;color:var(--muted);margin:8px 0 16px" id="closeModalSub"></div>
+    <div><label>Exit Price</label><input id="exitPrice" type="number" step="any"></div>
+    <div id="exitPnlPreview" style="text-align:center;font-size:22px;font-weight:700;font-family:monospace;margin:14px 0;min-height:32px"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="cancelCloseModal()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmClose()">CLOSE TRADE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== DELETE CONFIRM MODAL ======== -->
+<div id="deleteModal" class="modal">
+  <div class="modal-content">
+    <h3>Delete Trade?</h3>
+    <div style="font-size:13px;color:var(--muted);margin:10px 0 24px" id="deleteModalSub">This cannot be undone.</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="cancelDelete()">Keep It</button>
+      <button style="flex:1;padding:14px;border:none;border-radius:12px;font-weight:700;cursor:pointer;background:var(--red);color:white" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+  <span id="toastUndo" onclick="undoDelete()"
+    style="display:none;margin-left:12px;padding:3px 10px;background:rgba(255,255,255,0.25);border-radius:20px;font-size:12px;cursor:pointer;font-weight:800;letter-spacing:0.04em">
+    UNDO
+  </span>
+</div>
+
+<div style="text-align:center;padding:28px 20px 12px;font-size:11px;color:var(--muted);letter-spacing:0.06em">
+  © 2026 Designed by <span style="color:var(--accent2);font-weight:700">Wanpis_t</span> · All rights reserved
+</div>
+
+<script>
+// ============================================================
+//  TELEGRAM
+// ============================================================
+// TG_TOKEN and TG_CHAT_ID now come from settings
+let TG_TOKEN    = '';
+let TG_CHAT_ID  = '@wanpis_t_official';
+let TG_CHAT_ID2 = '';
+
+// Sent right before the BUY/SELL open message
+const TG_STICKERS = {
+  BUY:  'CAACAgUAAxkBAAJGWGpQht15TOGWzbxIFjEmtLXUGjbiAAI5AAOCuB0eC_5NYtJjsh08BA',
+  SELL: 'CAACAgUAAxkBAAJGWmpQhuTxUU9a6H2-1qAp4RBGOrmxAAJWAAOCuB0eiUkJZot_hOQ8BA'
+};
+
+// Fired randomly, one of these, right before an auto TP/SL close message
+const TG_HIT_STICKERS = [
+  'CAACAgUAAxkBAAJGZmpQittKaCAISTel2dB7daGaJCzvAAJqCwACg9GoVD1JuX1-UZHBPAQ',
+  'CAACAgQAAxkBAAJGaGpQiwmkNVjwf3_RshA4lr8XhC4zAAKhHQACjdxoUAoOIZV4JO0wPAQ',
+  'CAACAgIAAxkBAAJGampQiyaJ6vp33q4AAcI60CzNJgSNbAACnhoAArgDQUnTUyFiBT0oizwE',
+  'CAACAgIAAxkBAAJGbGpQi0tZPKQSwsfs-Y2cDBDytHqxAAImGgACof14SWrqNV0fZQh4PAQ',
+  'CAACAgUAAxkBAAJGbmpQi2qYyxJEvt_V5mL353PgGvOfAAJBCgACn_HoVH3KI93-ByTSPAQ',
+  'CAACAgUAAxkBAAJGcGpQi3yC-bnd5qrrYCsnrlLfiyM3AALyCwACXzHYVIWUQ6UuxCY8PAQ',
+  'CAACAgUAAxkBAAJGdGpQi_wYKWVwqiw6Tn6cDjqz6bAwAAK_CwACaK2gVANxJjPwSE3GPAQ',
+  'CAACAgUAAxkBAAJGdmpQjA6e9eg5eq8MkK4eFSWaL3OEAAJbCwAC12u5VwhjbOnfpgW0PAQ',
+  'CAACAgUAAxkBAAJGfGpQjir7LJdSy8pYGb9dDLJsynhMAAIcCAACpq8YVYjrQAcb9IrvPAQ',
+  'CAACAgUAAxkBAAJGgmpQjnkGIgJxRULnhrfdH3B3IKqzAAKXCwACZrGBVZ3pNCwI4IRLPAQ',
+  'CAACAgUAAxkBAAJGhGpQjoia9sBzh5JVShvPgJtZZkQ4AAKEDAACKt7hVPylcIztoLzrPAQ',
+  'CAACAgIAAxkBAAJGumpQtfjTp3cpOKWdTuOyEfXMoIrVAAKQHgACQIBBSaUkSBVpn-dPPAQ',
+  'CAACAgIAAxUAAWpU4IKJgyLiVw8GVtmgdSC2fgLIAAJnHAACmyj5SASqTO3EMcAxPAQ',
+  'CAACAgIAAxUAAWpU4IL1081nlRad2lytOtcx7R6jAAIDGQACqNP4SLm1EccqshhVPAQ',
+  'CAACAgIAAxUAAWpU4ILrSdz1w0MOP0XVxKd-jvmOAAJJHQACgKJBScanduNb-8VkPAQ',
+  'CAACAgIAAxUAAWpU4IJjbsOtTgk4GntRBCk4skjPAAIWGgACuNJ4Sa7E97FIq9tQPAQ'
+];
+
+function randomHitSticker() {
+  return TG_HIT_STICKERS[Math.floor(Math.random() * TG_HIT_STICKERS.length)];
+}
+
+async function sendTelegramSticker(fileId) {
+  TG_TOKEN    = settings.tgBotToken || '';
+  TG_CHAT_ID  = settings.tgChatId || '@wanpis_t_official';
+  TG_CHAT_ID2 = settings.tgChatId2 || '';
+
+  const sendOne = async (chatId) => {
+    if (!chatId) return true;
+    try {
+      const url = `https://api.telegram.org/bot${TG_TOKEN}/sendSticker`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, sticker: fileId })
+      });
+      const data = await res.json();
+      if (!data.ok) console.error(`TG sticker error (${chatId}):`, data.description);
+      return data.ok;
+    } catch(e) {
+      console.error(`Telegram sticker error (${chatId})`, e);
+      return false;
+    }
+  };
+
+  const [ok1] = await Promise.all([ sendOne(TG_CHAT_ID), sendOne(TG_CHAT_ID2) ]);
+  return ok1;
+}
+
+// Low-level: send to one chat, return its message_id (or null on failure)
+async function sendTelegramToChat(chatId, msg, replyToMessageId) {
+  if (!chatId) return null;
+  try {
+    const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
+    const payload = { chat_id: chatId, text: msg, parse_mode: 'HTML' };
+    if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.error(`TG error (${chatId}):`, data.description);
+      return null;
+    }
+    return data.result && data.result.message_id ? data.result.message_id : null;
+  } catch(e) {
+    console.error(`Telegram error (${chatId})`, e);
+    return null;
+  }
+}
+
+// Sends msg to both configured channels (channel 2 is optional).
+// replyTo can be a plain message_id (legacy/primary-only) or a
+// { c1, c2 } object from a previous sendTelegram() call, so reply
+// threads stay correct independently in each channel.
+// Returns { c1, c2 } — store this back on the trade for future replies.
+async function sendTelegram(msg, replyTo) {
+  TG_TOKEN    = settings.tgBotToken || '';
+  TG_CHAT_ID  = settings.tgChatId || '@wanpis_t_official';
+  TG_CHAT_ID2 = settings.tgChatId2 || '';
+
+  let replyC1 = null, replyC2 = null;
+  if (replyTo && typeof replyTo === 'object') {
+    replyC1 = replyTo.c1 || null;
+    replyC2 = replyTo.c2 || null;
+  } else if (replyTo) {
+    replyC1 = replyTo;
+  }
+
+  const [id1, id2] = await Promise.all([
+    sendTelegramToChat(TG_CHAT_ID, msg, replyC1),
+    TG_CHAT_ID2 ? sendTelegramToChat(TG_CHAT_ID2, msg, replyC2) : Promise.resolve(null)
+  ]);
+
+  if (id1 == null) {
+    showToast('TG: message failed to send', 'warn');
+  }
+
+  return { c1: id1, c2: id2 };
+}
+
+// ============================================================
+//  STATE
+// ============================================================
+// Exness contract specs:
+// XAUUSD: contract size = 100 troy oz, pip size = 0.01  → pip value per lot = 0.01 × 100 = $1.00
+// BTCUSD: contract size = 1 BTC,       pip size = 0.1   → pip value per lot = 0.1  × 1   = $0.10
+const INSTRUMENTS = {
+  xau: { label: 'XAUUSD', symbol: 'XAU', pipSize: 0.01, contractSize: 100, defaultEntry: 2650.00, okxSymbol: 'XAUT-USDT' },
+  btc: { label: 'BTCUSD', symbol: 'BTC', pipSize: 0.1,  contractSize: 1,   defaultEntry: 65000.00, okxSymbol: 'BTC-USDT' }
+};
+
+let state = {
+  xau: { trades: [], lotSize: 0.10, defaultPips: 300 },
+  btc: { trades: [], lotSize: 0.01, defaultPips: 50  },
+  records: {
+    bestSingleWin:   0,       // largest single trade P/L ever
+    bestDayPnl:      0,       // highest net P/L on one calendar day
+    longestWinStreak: 0,      // max consecutive wins all-time
+    firstProfitableWeek: false // whether they've had one yet
+  }
+};
+
+let currentInst    = 'xau';   // active instrument on trade page
+let currentSide    = 'BUY';
+let closingTradeId = null;
+let trackerFilter  = 'all';
+let toastTimer     = null;
+let pendingDelete  = null;
+
+// Returns only instrument keys — never 'records' or any future non-trade keys
+function instKeys() { return Object.keys(INSTRUMENTS); }
+
+// ============================================================
+//  DURATION HELPERS
+// ============================================================
+function formatDuration(ms) {
+  if (!ms || ms < 0) return '—';
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${m}m`;
+}
+
+// Live elapsed timer — updates open-trade duration badges every 30s
+let elapsedTimer = null;
+function startElapsedTimer() {
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    document.querySelectorAll('[data-opened-at]').forEach(el => {
+      const openedAt = parseInt(el.getAttribute('data-opened-at'), 10);
+      el.textContent = '⏱ ' + formatDuration(Date.now() - openedAt);
+    });
+  }, 30000);
+}
+
+const STORAGE_KEY = 'tradeTracker_v5';
+
+// ============================================================
+//  PERSISTENCE
+// ============================================================
+function loadData() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      state = parsed;
+      // Back-compat: older saves won't have records
+      if (!state.records) {
+        state.records = {
+          bestSingleWin:    0,
+          bestDayPnl:       0,
+          longestWinStreak: 0,
+          firstProfitableWeek: false
+        };
+      }
+    } catch(e) {
+      console.warn('State parse error', e);
+    }
+  }
+  updateDateDisplays();
+  applyInstrument();
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function switchTab(tab) {
+  ['xau','btc','tracker','settings'].forEach(t => {
+    document.getElementById('tab-' + t).classList.remove('active');
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'tracker') {
+    document.getElementById('page-tracker').classList.add('active');
+    renderTracker();
+  } else if (tab === 'settings') {
+    document.getElementById('page-settings').classList.add('active');
+    updateNextSummaryLabel();
+  } else {
+    currentInst = tab;
+    document.getElementById('page-trade').classList.add('active');
+    applyInstrument();
+  }
+}
+
+// ============================================================
+//  INSTRUMENT SWITCH
+// ============================================================
+function applyInstrument() {
+  const inst = INSTRUMENTS[currentInst];
+  const s    = state[currentInst];
+
+  document.getElementById('tradePageTitle').textContent = inst.label + ' Logger';
+  document.getElementById('tradePageTitle').style.color =
+    currentInst === 'xau' ? 'var(--gold)' : 'var(--btc)';
+
+  document.getElementById('livePriceBarLabel').textContent = inst.label + ' Live Price';
+  const cachedPrice = livePrices[currentInst];
+  document.getElementById('livePriceBarValue').textContent =
+    cachedPrice != null ? cachedPrice.toFixed(currentInst === 'xau' ? 2 : 1) : '—';
+
+  // Lot & pips
+  const decimals = s.lotSize < 1 ? 2 : s.lotSize < 10 ? 1 : 0;
+  document.getElementById('lotSize').value = s.lotSize.toFixed(decimals);
+  document.getElementById('defaultPips').textContent = s.defaultPips;
+
+  // Pip value info (Exness specs)
+  const pipValPerLot = inst.pipSize * inst.contractSize;
+  const pipValCurrent = pipValPerLot * s.lotSize;
+  document.getElementById('pipValueInfo').innerHTML =
+    `Pip size: <b style="color:var(--text)">${inst.pipSize}</b> &nbsp;|&nbsp; ` +
+    `Contract: <b style="color:var(--text)">${inst.contractSize} ${inst.symbol === 'XAU' ? 'oz' : 'BTC'}</b> &nbsp;|&nbsp; ` +
+    `1 pip @ current lot = <b style="color:var(--accent2)">${pipValCurrent.toFixed(2)}</b>`;
+
+  renderTrades();
+}
+
+// ============================================================
+//  LOT & PIPS
+// ============================================================
+function saveLotSize() {
+  let val = parseFloat(document.getElementById('lotSize').value);
+  if (isNaN(val) || val < 0.01) val = 0.01;
+  if (val > 10000) val = 10000;
+  state[currentInst].lotSize = val;
+  saveData();
+  applyInstrument();
+}
+
+function changeLot(dir) {
+  const cur = state[currentInst].lotSize;
+  let step = cur < 1 ? 0.01 : cur < 10 ? 0.1 : cur < 100 ? 1 : cur < 1000 ? 10 : 100;
+  let next = Math.round((cur + dir * step) * 10000) / 10000;
+  next = Math.max(0.01, Math.min(10000, next));
+  const decimals = next < 1 ? 2 : next < 10 ? 1 : 0;
+  state[currentInst].lotSize = next;
+  document.getElementById('lotSize').value = next.toFixed(decimals);
+  saveData();
+  applyInstrument();
+}
+
+function changeDefaultPips(delta) {
+  let v = state[currentInst].defaultPips + delta;
+  v = Math.max(10, Math.min(5000, v));
+  state[currentInst].defaultPips = v;
+  document.getElementById('defaultPips').textContent = v;
+  saveData();
+}
+
+// ============================================================
+//  OPEN TRADE MODAL
+// ============================================================
+let slLocked = true; // SL auto-calculated by default
+
+function toggleSLLock() {
+  slLocked = !slLocked;
+  const slInput  = document.getElementById('tradeSL');
+  const lockBtn  = document.getElementById('slLockBtn');
+
+  if (slLocked) {
+    slInput.readOnly = true;
+    slInput.style.opacity = '0.5';
+    slInput.style.cursor  = 'not-allowed';
+    lockBtn.textContent   = '🔒 AUTO';
+    lockBtn.style.color   = 'var(--accent2)';
+    lockBtn.style.borderColor = 'var(--accent2)';
+    updateSLFromEntry(); // recalculate immediately
+  } else {
+    slInput.readOnly = false;
+    slInput.style.opacity = '1';
+    slInput.style.cursor  = 'text';
+    lockBtn.textContent   = '✏️ MANUAL';
+    lockBtn.style.color   = 'var(--warn)';
+    lockBtn.style.borderColor = 'var(--warn)';
+    setTimeout(() => slInput.focus(), 50);
+  }
+}
+
+function openTradeModal(side) {
+  currentSide = side;
+  const inst = INSTRUMENTS[currentInst];
+  document.getElementById('modalTitle').textContent = `New ${side} Trade`;
+  document.getElementById('modalInst').textContent  = inst.label;
+
+  // Always reset SL to auto-lock when modal opens
+  slLocked = true;
+  const slInput = document.getElementById('tradeSL');
+  const lockBtn = document.getElementById('slLockBtn');
+  slInput.readOnly = true;
+  slInput.style.opacity = '0.5';
+  slInput.style.cursor  = 'not-allowed';
+  lockBtn.textContent   = '🔒 AUTO';
+  lockBtn.style.color   = 'var(--accent2)';
+  lockBtn.style.borderColor = 'var(--accent2)';
+
+  const entryInput = document.getElementById('entryPrice');
+  const livePrice = livePrices[currentInst];
+  const decimals  = currentInst === 'xau' ? 2 : 1;
+  entryInput.value = livePrice != null
+    ? livePrice.toFixed(decimals)
+    : inst.defaultEntry.toFixed(inst === INSTRUMENTS.btc ? 0 : 2);
+  entryInput.oninput = updateSLFromEntry;
+  updateSLFromEntry();
+
+  document.getElementById('tradeModal').style.display = 'flex';
+  setTimeout(() => entryInput.focus(), 50);
+}
+
+function updateSLFromEntry() {
+  if (!slLocked) return; // user is editing manually — don't overwrite
+  const inst  = INSTRUMENTS[currentInst];
+  const s     = state[currentInst];
+  const entry = parseFloat(document.getElementById('entryPrice').value) || inst.defaultEntry;
+  const slDist = s.defaultPips * inst.pipSize;
+  const sl = currentSide === 'BUY' ? entry - slDist : entry + slDist;
+  document.getElementById('tradeSL').value = sl.toFixed(2);
+}
+
+function closeTradeModal() {
+  document.getElementById('tradeModal').style.display = 'none';
+}
+
+function confirmTrade() {
+  const entryStr = document.getElementById('entryPrice').value.trim();
+  if (!entryStr) { showToast('Enter entry price', 'warn'); return; }
+
+  const entry = parseFloat(entryStr);
+  const sl    = parseFloat(document.getElementById('tradeSL').value);
+  createTrade(currentInst, currentSide, entry, sl, null);
+  closeTradeModal();
+}
+
+// Shared trade-creation logic used by both the manual modal (confirmTrade)
+// and the automatic signal-bot path (checkForAutoSignal). Keeping this in
+// one place means both paths always save/render/notify identically.
+function createTrade(instKey, side, entry, sl, tp) {
+  const inst = INSTRUMENTS[instKey];
+  const s    = state[instKey];
+
+  const now = Date.now();
+  const trade = {
+    id:       now,
+    inst:     instKey,
+    side:     side,
+    entry:    entry,
+    sl:       sl,
+    tp:       (tp !== undefined && tp !== null) ? tp : null,
+    lot:      s.lotSize,
+    exit:     null,
+    pnl:      0,
+    time:     new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    status:   'open',
+    openedAt: now,
+    closedAt: null,
+    duration: null,
+    tgMsgId:  null
+  };
+
+  s.trades.unshift(trade);
+  saveData();
+  renderTrades();
+  haptic([10, 40, 20]); // double-pulse: intentional action feel
+  showToast(`${inst.label} ${side} @ ${trade.entry}`, side.toLowerCase());
+
+  const sideLabel = side === 'BUY' ? 'Buy' : 'Sell';
+  let tgMsg =
+    `${inst.label} ${sideLabel}\n\n` +
+    `✅ Entry: ${fmtPrice(trade.entry, instKey)} OR Current Market Price\n` +
+    `🛑 SL: ${fmtPrice(trade.sl, instKey)}`;
+  if (trade.tp !== null) {
+    tgMsg += `\n🎯 TP: ${fmtPrice(trade.tp, instKey)}`;
+  }
+  tgMsg += `\n\n${instHashtag(instKey)}`;
+
+  sendTelegramSticker(TG_STICKERS[side]).then(() => {
+    sendTelegram(tgMsg).then(ids => {
+      if (ids) {
+        trade.tgMsgId = ids;
+        saveData();
+      }
+    });
+  });
+  pushToSheets(trade, 'OPEN');
+
+  if (settings.autoTpSlOn) pollLivePrices();
+
+  return trade;
+}
+
+// ============================================================
+//  CLOSE TRADE MODAL
+// ============================================================
+function openCloseModal(id) {
+  // Search all instruments
+  let trade = null;
+  for (const key of instKeys()) {
+    trade = state[key].trades.find(t => t.id === id);
+    if (trade) break;
+  }
+  if (!trade) return;
+  closingTradeId = id;
+
+  const inst = INSTRUMENTS[trade.inst];
+  document.getElementById('closeModalTitle').textContent = `Close ${trade.side} — ${inst.label}`;
+  document.getElementById('closeModalSub').textContent   = `Entry: ${trade.entry} | Lot: ${trade.lot}`;
+
+  const exitInput = document.getElementById('exitPrice');
+  const livePrice = livePrices[trade.inst];
+  const decimals  = trade.inst === 'xau' ? 2 : 1;
+  const prefillPrice = livePrice != null ? Number(livePrice.toFixed(decimals)) : trade.entry;
+  exitInput.value = prefillPrice;
+  exitInput.oninput = updatePnlPreview;
+  updatePnlPreviewFor(trade, prefillPrice);
+
+  document.getElementById('closeModal').style.display = 'flex';
+  setTimeout(() => exitInput.focus(), 50);
+}
+
+function updatePnlPreview() {
+  let trade = null;
+  for (const key of instKeys()) {
+    trade = state[key].trades.find(t => t.id === closingTradeId);
+    if (trade) break;
+  }
+  if (!trade) return;
+  const exit = parseFloat(document.getElementById('exitPrice').value) || trade.entry;
+  updatePnlPreviewFor(trade, exit);
+}
+
+// Comma-formatted price for Telegram messages, e.g. 3,994.90
+function fmtPrice(value, instKey) {
+  const decimals = instKey === 'xau' ? 2 : 1;
+  return Number(value).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+// Hashtag footer for trade-related messages
+function instHashtag(instKey) {
+  return instKey === 'xau' ? '#wanpis #trading $Gold' : '#wanpis #trading $BTC';
+}
+
+function calcPnl(trade, exit) {
+  const inst = INSTRUMENTS[trade.inst];
+  // Exness formula: P/L = price_diff_in_pips × pip_value_per_lot × lots
+  // price_diff_in_pips = price move / pipSize
+  // pip_value_per_lot  = pipSize × contractSize
+  // combined: P/L = price_move × contractSize × lots
+  const priceDiff = trade.side === 'BUY' ? (exit - trade.entry) : (trade.entry - exit);
+  return priceDiff * inst.contractSize * trade.lot;
+}
+
+// Signed pip count: positive = in your favour, negative = against
+function calcPips(trade, exit) {
+  const inst = INSTRUMENTS[trade.inst];
+  const priceDiff = trade.side === 'BUY' ? (exit - trade.entry) : (trade.entry - exit);
+  return Math.round(priceDiff / inst.pipSize);
+}
+
+// SL distance in pips (always positive)
+function slPips(trade) {
+  const inst = INSTRUMENTS[trade.inst];
+  return Math.round(Math.abs(trade.sl - trade.entry) / inst.pipSize);
+}
+
+function updatePnlPreviewFor(trade, exit) {
+  const pnl = calcPnl(trade, exit);
+  const el  = document.getElementById('exitPnlPreview');
+  el.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+  el.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
+function cancelCloseModal() {
+  document.getElementById('closeModal').style.display = 'none';
+  closingTradeId = null;
+}
+
+function confirmClose() {
+  let trade = null, instKey = null;
+  for (const key of instKeys()) {
+    trade = state[key].trades.find(t => t.id === closingTradeId);
+    if (trade) { instKey = key; break; }
+  }
+  if (!trade) return;
+
+  const exit = parseFloat(document.getElementById('exitPrice').value);
+  if (isNaN(exit)) { showToast('Enter exit price', 'warn'); return; }
+
+  trade.exit     = exit;
+  trade.pnl      = calcPnl(trade, exit);
+  trade.status   = 'closed';
+  trade.closedAt = Date.now();
+  trade.duration = trade.openedAt ? trade.closedAt - trade.openedAt : null;
+
+  saveData();
+  renderTrades();
+  cancelCloseModal();
+
+  const sign = trade.pnl >= 0 ? '+' : '';
+  showToast(`Closed | P/L ${sign} ${trade.pnl.toFixed(2)}`, trade.pnl >= 0 ? 'buy' : 'sell');
+
+  const inst    = INSTRUMENTS[trade.inst];
+  const pips    = calcPips(trade, exit);
+  const pipSign = pips >= 0 ? '+' : '';
+  const sideLabel = trade.side === 'BUY' ? 'Buy' : 'Sell';
+  const tag = pips >= 0 ? 'Closed ✅' : 'Closed 🛑';
+  const noteStr = trade.note ? `\n📝 ${trade.note}` : '';
+  const tgMsg =
+    `${inst.label} ${sideLabel} - ${tag}\n\n` +
+    `🏁 Exit: ${fmtPrice(exit, trade.inst)}\n` +
+    `📊 Result: ${pipSign}${pips} pips` +
+    noteStr +
+    `\n\n${instHashtag(trade.inst)}`;
+  // Reply to the most recent message in this trade's thread (open, or last SL/TP edit)
+  sendTelegramSticker(randomHitSticker()).then(() => {
+    sendTelegram(tgMsg, trade.tgMsgId);
+  });
+  pushToSheets(trade, 'CLOSED');
+
+  // Check for personal bests — fires silently after close message
+  setTimeout(() => checkPersonalBests(trade), 800);
+}
+
+// ============================================================
+//  PERSONAL BEST ALERTS
+// ============================================================
+function checkPersonalBests(justClosedTrade) {
+  const rec      = state.records;
+  const milestones = [];
+
+  // --- Gather all closed trades across both instruments ---
+  let allClosed = [];
+  instKeys().forEach(k => {
+    allClosed = allClosed.concat(state[k].trades.filter(t => t.status === 'closed'));
+  });
+
+  // 1. LARGEST SINGLE WIN (pips)
+  const closedPips = calcPips(justClosedTrade, justClosedTrade.exit);
+  if (closedPips > 0 && closedPips > rec.bestSingleWin) {
+    const prev = rec.bestSingleWin;
+    rec.bestSingleWin = closedPips;
+    milestones.push(
+      `New Biggest Win 🏆\n\n` +
+      `+${closedPips} pips${prev > 0 ? ` (previous best: +${prev} pips)` : ' — first win on record!'}`
+    );
+  }
+
+  // 2. BEST SINGLE DAY (pips)
+  const today = justClosedTrade.date;
+  const dayPips = allClosed
+    .filter(t => t.date === today)
+    .reduce((s, t) => s + calcPips(t, t.exit), 0);
+
+  if (dayPips > rec.bestDayPnl) {
+    const prev = rec.bestDayPnl;
+    rec.bestDayPnl = dayPips;
+    if (prev > 0) { // only celebrate when beating a real previous record
+      milestones.push(
+        `Best Day Ever 📅\n\n` +
+        `${today}: +${dayPips} pips (previous best: +${prev} pips)`
+      );
+    } else if (dayPips > 0) {
+      // First profitable day — set baseline silently, no message
+      // (avoid noise on very first ever trade)
+    }
+  }
+
+  // 3. LONGEST WIN STREAK (all-time across instruments, sorted by id)
+  const sorted = [...allClosed].sort((a, b) => a.id - b.id);
+  let curRun = 0, maxRun = 0;
+  sorted.forEach(t => {
+    if (t.pnl > 0) { curRun++; maxRun = Math.max(maxRun, curRun); }
+    else curRun = 0;
+  });
+  if (maxRun > rec.longestWinStreak && maxRun >= 3) {
+    const prev = rec.longestWinStreak;
+    rec.longestWinStreak = maxRun;
+    milestones.push(
+      `Longest Win Streak 🔥\n\n` +
+      `${maxRun} wins in a row${prev >= 3 ? ` (previous best: ${prev})` : ' — new milestone!'}`
+    );
+  } else if (maxRun > rec.longestWinStreak) {
+    rec.longestWinStreak = maxRun; // track silently below threshold of 3
+  }
+
+  // 4. FIRST PROFITABLE WEEK (pips)
+  if (!rec.firstProfitableWeek) {
+    const now       = new Date();
+    const dayOfWeek = now.getDay();
+    const monday    = new Date(now);
+    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+    const weekPips = allClosed
+      .filter(t => {
+        const d = new Date(t.date + ' ' + now.getFullYear());
+        return d >= monday;
+      })
+      .reduce((s, t) => s + calcPips(t, t.exit), 0);
+
+    if (weekPips > 0) {
+      rec.firstProfitableWeek = true;
+      milestones.push(
+        `First Profitable Week 🌟\n\n` +
+        `Week P/L so far: +${weekPips} pips`
+      );
+    }
+  }
+
+  // 5. ROUND-NUMBER DAY MILESTONES (50, 100, 200, 500, 1000+ pips)
+  const roundMilestones = [50, 100, 200, 500, 1000, 2000];
+  roundMilestones.forEach(target => {
+    if (dayPips >= target) {
+      const key = `day_${today}_${target}`;
+      if (!rec[key]) {
+        rec[key] = true;
+        milestones.push(
+          `${target} Pip Day 💵\n\n` +
+          `You've made +${dayPips} pips today`
+        );
+      }
+    }
+  });
+
+  // Save updated records
+  saveData();
+
+  // Fire each milestone to Telegram with a 1.2s gap so messages don't bunch
+  milestones.forEach((msg, i) => {
+    setTimeout(() => {
+      sendTelegram(msg);
+    }, i * 1200);
+  });
+}
+
+// ============================================================
+//  RENDER TRADE LOG
+// ============================================================
+function renderTrades() {
+  const container = document.getElementById('tradeLogList');
+  container.innerHTML = '';
+  const trades = state[currentInst].trades;
+  const inst   = INSTRUMENTS[currentInst];
+  let closedPnl = 0;
+
+  trades.forEach(trade => {
+    // ---- outer swipe wrapper ----
+    const wrapper = document.createElement('div');
+    wrapper.className = 'swipe-wrapper';
+
+    // Red delete background (revealed on swipe)
+    const bg = document.createElement('div');
+    bg.className = 'delete-bg';
+    bg.innerHTML = '🗑 Delete';
+    wrapper.appendChild(bg);
+
+    // ---- trade card ----
+    const div = document.createElement('div');
+    div.className = 'trade-log-item';
+
+    const noteTxt = trade.note ? trade.note : '';
+
+    let html = `
+      <strong>${trade.side}</strong>
+      <span class="inst-tag ${inst.symbol}"> ${inst.symbol}</span>
+      @ ${trade.entry}
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">${trade.time} • ${trade.lot} lot • SL: <span id="sl-display- ${trade.id}">${trade.sl}</span> • TP: <span id="tp-display- ${trade.id}">${trade.tp != null ? trade.tp : '—'}</span></div>
+    `;
+
+    if (trade.status === 'closed') {
+      const sign   = trade.pnl >= 0 ? '+' : '';
+      const durTxt = trade.duration ? ` • ⏱ ${formatDuration(trade.duration)}` : '';
+      html += `<div class="pnl ${trade.pnl >= 0 ? 'positive' : 'negative'}" style="margin-top:6px">
+        P/L: ${sign} ${trade.pnl.toFixed(2)}
+        <span style="color:var(--muted);font-size:12px">@ ${trade.exit} ${durTxt}</span>
+      </div>`;
+      // Show saved note or editable textarea
+      html += `<textarea class="notes-input" placeholder="Add a note… (e.g. clean setup, revenge trade)"
+        onblur="saveNote(${trade.id}, this.value)"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"
+        rows="2">${noteTxt}</textarea>`;
+      if (noteTxt) {
+        // Show as styled quote underneath (visible even collapsed)
+      }
+      closedPnl += trade.pnl;
+    } else {
+      const elapsedMs  = trade.openedAt ? Date.now() - trade.openedAt : null;
+      const elapsedTxt = elapsedMs ? formatDuration(elapsedMs) : '—';
+      html += `
+        <button class="close-btn" onclick="openCloseModal(${trade.id})">CLOSE</button>
+        <div style="margin-top:8px;font-size:12px;color:var(--warn);font-weight:600"
+             data-opened-at="${trade.openedAt || ''}">⏱ ${elapsedTxt}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input
+            id="curprice-${trade.id}"
+            type="number" step="any"
+            placeholder="Current price..."
+            style="flex:1;padding:8px 10px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-family:monospace"
+          >
+          <button onclick="sendUpdateMsg(${trade.id})"
+            style="padding:8px 12px;background:linear-gradient(135deg,#1a3a5c,#2e86de);border:none;border-radius:8px;color:white;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+            👀 UPDATE
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input
+            id="newsl-${trade.id}"
+            type="number" step="any"
+            placeholder="New SL..."
+            style="flex:1;padding:8px 10px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-family:monospace"
+          >
+          <button onclick="editSL(${trade.id})"
+            style="padding:8px 12px;background:linear-gradient(135deg,#5c3a1a,#de8c2e);border:none;border-radius:8px;color:white;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+            🛑 EDIT SL
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input
+            id="newtp-${trade.id}"
+            type="number" step="any"
+            placeholder="New TP..."
+            style="flex:1;padding:8px 10px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-family:monospace"
+          >
+          <button onclick="editTP(${trade.id})"
+            style="padding:8px 12px;background:linear-gradient(135deg,#1a5c2e,#2ede8c);border:none;border-radius:8px;color:white;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+            🎯 EDIT TP
+          </button>
+        </div>
+        <textarea class="notes-input" placeholder="Notes… (entry reason, market condition)"
+          onblur="saveNote(${trade.id}, this.value)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"
+          rows="2">${noteTxt}</textarea>
+      `;
+    }
+
+
+    div.innerHTML = html;
+    wrapper.appendChild(div);
+    container.appendChild(wrapper);
+
+    // Attach swipe-to-delete touch/mouse handler
+    attachSwipe(wrapper, trade.id);
+  });
+
+  document.getElementById('summaryTrades').textContent = trades.length;
+  document.getElementById('summaryPnl').textContent    = '$' + closedPnl.toFixed(2);
+  document.getElementById('summaryPnl').style.color    = closedPnl >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
+// ============================================================
+//  MID-TRADE UPDATE
+// ============================================================
+function sendUpdateMsg(id) {
+  let trade = null;
+  for (const key of instKeys()) {
+    trade = state[key].trades.find(t => t.id === id);
+    if (trade) break;
+  }
+  if (!trade) return;
+
+  const curPrice = parseFloat(document.getElementById('curprice-' + id).value);
+  if (isNaN(curPrice)) { showToast('Enter current price', 'warn'); return; }
+
+  const inst      = INSTRUMENTS[trade.inst];
+  const floatPips = calcPips(trade, curPrice);
+  const pipSign   = floatPips >= 0 ? '+' : '';
+  const sideLabel = trade.side === 'BUY' ? 'Buy' : 'Sell';
+
+  const tgMsg =
+    `${inst.label} ${sideLabel} - Update\n\n` +
+    `💹 Current: ${fmtPrice(curPrice, trade.inst)}\n` +
+    `📊 Floating: ${pipSign}${floatPips} pips\n\n` +
+    `${instHashtag(trade.inst)}`;
+
+  sendTelegram(tgMsg);
+  showToast('Update sent!', 'buy');
+
+  // Clear the input after sending
+  document.getElementById('curprice-' + id).value = '';
+}
+
+// ============================================================
+//  MID-TRADE SL EDIT
+// ============================================================
+function editSL(id) {
+  let trade = null;
+  for (const key of instKeys()) {
+    trade = state[key].trades.find(t => t.id === id);
+    if (trade) break;
+  }
+  if (!trade) return;
+
+  const input = document.getElementById('newsl-' + id);
+  const newSL = parseFloat(input.value);
+  if (isNaN(newSL)) { showToast('Enter new SL', 'warn'); return; }
+
+  const inst   = INSTRUMENTS[trade.inst];
+  const oldSL  = trade.sl;
+  trade.sl     = newSL;
+  saveData();
+  renderTrades();
+  haptic([10, 30]);
+  showToast(`SL updated → ${newSL}`, 'buy');
+
+  const sideLabel = trade.side === 'BUY' ? 'Buy' : 'Sell';
+
+  const tgMsg =
+    `${inst.label} ${sideLabel} - SL Updated\n\n` +
+    `🛑 New SL: ${fmtPrice(newSL, trade.inst)}\n\n` +
+    `${instHashtag(trade.inst)}`;
+
+  // Reply to the most recent message in this trade's thread, then become the new "latest"
+  sendTelegramSticker(randomHitSticker()).then(() => {
+    sendTelegram(tgMsg, trade.tgMsgId).then(ids => {
+      if (ids) {
+        trade.tgMsgId = ids;
+        saveData();
+      }
+    });
+  });
+
+  input.value = '';
+}
+
+// ============================================================
+//  MID-TRADE TP EDIT
+// ============================================================
+function editTP(id) {
+  let trade = null;
+  for (const key of instKeys()) {
+    trade = state[key].trades.find(t => t.id === id);
+    if (trade) break;
+  }
+  if (!trade) return;
+
+  const input = document.getElementById('newtp-' + id);
+  const newTP = parseFloat(input.value);
+  if (isNaN(newTP)) { showToast('Enter new TP', 'warn'); return; }
+
+  const inst   = INSTRUMENTS[trade.inst];
+  const oldTP  = trade.tp;
+  trade.tp     = newTP;
+  saveData();
+  renderTrades();
+  haptic([10, 30]);
+  showToast(`TP updated → ${newTP}`, 'buy');
+
+  const sideLabel = trade.side === 'BUY' ? 'Buy' : 'Sell';
+
+  const tgMsg =
+    `${inst.label} ${sideLabel} - TP Updated\n\n` +
+    `🎯 New TP: ${fmtPrice(newTP, trade.inst)}\n\n` +
+    `${instHashtag(trade.inst)}`;
+
+  // Reply to the most recent message in this trade's thread, then become the new "latest"
+  sendTelegramSticker(randomHitSticker()).then(() => {
+    sendTelegram(tgMsg, trade.tgMsgId).then(ids => {
+      if (ids) {
+        trade.tgMsgId = ids;
+        saveData();
+      }
+    });
+  });
+
+  input.value = '';
+}
+
+// ============================================================
+//  MONTHLY P/L CALENDAR
+// ============================================================
+let calYear  = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-based
+
+function calShift(dir) {
+  calMonth += dir;
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0;  calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = monthNames[calMonth] + ' ' + calYear;
+
+  // Build a map: "Mon DD" string → net P/L for that day (all instruments, respects trackerFilter)
+  const dayMap = {};
+  let allTrades = [];
+  if (trackerFilter === 'all') {
+    instKeys().forEach(k => allTrades = allTrades.concat(state[k].trades));
+  } else {
+    allTrades = state[trackerFilter].trades;
+  }
+
+  allTrades.filter(t => t.status === 'closed').forEach(t => {
+    // trade.date is like "Jun 17" — parse with current year context
+    const parsed = new Date(`${t.date} ${calYear}`);
+    if (parsed.getMonth() === calMonth && parsed.getFullYear() === calYear) {
+      const key = t.date;
+      dayMap[key] = (dayMap[key] || 0) + t.pnl;
+    }
+  });
+
+  const grid     = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  const firstDay  = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMon = new Date(calYear, calMonth + 1, 0).getDate();
+  const today     = new Date();
+  const isThisMon = today.getFullYear() === calYear && today.getMonth() === calMonth;
+
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'cal-day empty';
+    grid.appendChild(empty);
+  }
+
+  for (let d = 1; d <= daysInMon; d++) {
+    const dateObj  = new Date(calYear, calMonth, d);
+    const dateStr  = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const pnl      = dayMap[dateStr];
+    const isFuture = dateObj > today && !isThisMon;
+    const isToday  = isThisMon && today.getDate() === d;
+
+    const cell = document.createElement('div');
+    let cls = 'cal-day';
+    if (isToday) cls += ' today';
+
+    let pnlHtml = '';
+    if (pnl !== undefined && !isFuture) {
+      cls += pnl > 0 ? ' win' : pnl < 0 ? ' loss' : ' flat';
+      const sign = pnl > 0 ? '+' : '';
+      // Show abbreviated value: $1.2k or $45
+      const abs = Math.abs(pnl);
+      const display = abs >= 1000 ? (sign + '' + (pnl/1000).toFixed(1) + 'k') : (sign + '' + pnl.toFixed(0));
+      pnlHtml = `<div class="cal-pnl">${display}</div>`;
+    } else if (!isFuture && dateObj <= today) {
+      // Past day with no trades — subtle empty
+      cls += ' flat';
+    }
+
+    cell.className = cls;
+    cell.innerHTML = `<div class="cal-num">${d}</div> ${pnlHtml}`;
+    grid.appendChild(cell);
+  }
+}
+
+// ============================================================
+//  TRACKER
+// ============================================================
+let dateRange = 'all';
+
+function setTrackerFilter(f) {
+  trackerFilter = f;
+  ['all','xau','btc'].forEach(k => {
+    document.getElementById('pill-' + k).classList.toggle('active', k === f);
+  });
+  renderTracker();
+}
+
+function setDateRange(r) {
+  dateRange = r;
+  ['all','today','week','month'].forEach(k => {
+    document.getElementById('range-' + k).classList.toggle('active', k === r);
+  });
+  renderTracker();
+}
+
+function tradeInRange(trade) {
+  if (dateRange === 'all') return true;
+  // trade.date is like "Jun 17" — reconstruct a Date for comparison
+  const now = new Date();
+  const tradeDate = new Date(trade.date + ' ' + now.getFullYear());
+
+  if (dateRange === 'today') {
+    const today = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return trade.date === today;
+  }
+  if (dateRange === 'week') {
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    startOfWeek.setHours(0,0,0,0);
+    return tradeDate >= startOfWeek;
+  }
+  if (dateRange === 'month') {
+    return tradeDate.getMonth() === now.getMonth() && tradeDate.getFullYear() === now.getFullYear();
+  }
+  return true;
+}
+
+function calcStreaks(trades) {
+  // trades sorted oldest→newest
+  let curStreak = 0, maxWin = 0, maxLoss = 0, runWin = 0, runLoss = 0;
+  trades.forEach(t => {
+    if (t.pnl > 0) {
+      runWin++; runLoss = 0;
+      maxWin = Math.max(maxWin, runWin);
+    } else {
+      runLoss++; runWin = 0;
+      maxLoss = Math.max(maxLoss, runLoss);
+    }
+  });
+  // Current streak: sign of last trade
+  if (trades.length) {
+    const last = trades[trades.length - 1];
+    if (last.pnl > 0) {
+      curStreak = runWin;
+    } else {
+      curStreak = -runLoss;
+    }
+  }
+  return { curStreak, maxWin, maxLoss };
+}
+
+function renderTracker() {
+  // Gather all trades by instrument filter
+  let allTradesRaw = [];
+  if (trackerFilter === 'all') {
+    instKeys().forEach(k => allTradesRaw = allTradesRaw.concat(state[k].trades));
+  } else {
+    allTradesRaw = state[trackerFilter].trades;
+  }
+
+  // Apply date range to closed trades
+  const closed = allTradesRaw.filter(t => t.status === 'closed' && tradeInRange(t));
+
+  const allTrades = allTradesRaw.filter(t => tradeInRange(t) || t.status === 'open').length;
+
+  const wins     = closed.filter(t => t.pnl > 0);
+  const losses   = closed.filter(t => t.pnl <= 0);
+  const totalPnl = closed.reduce((s, t) => s + t.pnl, 0);
+  const avgPnl   = closed.length ? totalPnl / closed.length : 0;
+  const best     = closed.length ? Math.max(...closed.map(t => t.pnl)) : 0;
+  const worst    = closed.length ? Math.min(...closed.map(t => t.pnl)) : 0;
+  const winRate  = closed.length ? Math.round((wins.length / closed.length) * 100) : 0;
+
+  // Profit factor
+  const grossWin  = wins.reduce((s, t) => s + t.pnl, 0);
+  const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+  const pf = grossLoss === 0 ? (grossWin > 0 ? '∞' : '—') : (grossWin / grossLoss).toFixed(2);
+
+  // Streaks — sort oldest first
+  const sorted = [...closed].sort((a, b) => a.id - b.id);
+  const { curStreak, maxWin, maxLoss } = calcStreaks(sorted);
+
+  document.getElementById('statTotal').textContent    = allTrades;
+  document.getElementById('statWinRate').textContent  = winRate + '%';
+  document.getElementById('statWinRate').style.color  = winRate >= 50 ? 'var(--green)' : 'var(--red)';
+
+  const pEl = document.getElementById('statTotalPnl');
+  pEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(0);
+  pEl.style.color = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const aEl = document.getElementById('statAvgPnl');
+  aEl.textContent = (avgPnl >= 0 ? '+' : '') + '$' + avgPnl.toFixed(0);
+  aEl.style.color = avgPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('statBestTrade').textContent  = closed.length ? '+$' + best.toFixed(0) : '$0';
+  document.getElementById('statWorstTrade').textContent = closed.length ? '$' + worst.toFixed(0) : '$0';
+
+  // Profit factor
+  const pfEl = document.getElementById('statProfitFactor');
+  pfEl.textContent = pf;
+  pfEl.style.color = pf === '—' ? 'var(--muted)' : (parseFloat(pf) >= 1 || pf === '∞') ? 'var(--green)' : 'var(--red)';
+
+  // Current streak
+  const streakEl  = document.getElementById('statStreak');
+  const streakLbl = document.getElementById('statStreakLbl');
+  if (curStreak === 0) {
+    streakEl.textContent = '—';
+    streakEl.style.color = 'var(--muted)';
+    streakLbl.textContent = 'Cur. Streak';
+  } else if (curStreak > 0) {
+    streakEl.textContent = '🔥 ' + curStreak + 'W';
+    streakEl.style.color = 'var(--green)';
+    streakLbl.textContent = 'Win Streak';
+  } else {
+    streakEl.textContent = '❄️ ' + Math.abs(curStreak) + 'L';
+    streakEl.style.color = 'var(--red)';
+    streakLbl.textContent = 'Loss Streak';
+  }
+
+  document.getElementById('statMaxWin').textContent  = maxWin;
+  document.getElementById('statMaxLoss').textContent = maxLoss;
+
+  // Avg hold time: wins vs losses
+  const winsWithDur   = wins.filter(t => t.duration);
+  const lossesWithDur = losses.filter(t => t.duration);
+  const avgHoldWin    = winsWithDur.length   ? winsWithDur.reduce((s,t)=>s+t.duration,0)   / winsWithDur.length   : null;
+  const avgHoldLoss   = lossesWithDur.length ? lossesWithDur.reduce((s,t)=>s+t.duration,0) / lossesWithDur.length : null;
+  document.getElementById('statAvgHoldWin').textContent  = avgHoldWin  ? formatDuration(avgHoldWin)  : '—';
+  document.getElementById('statAvgHoldLoss').textContent = avgHoldLoss ? formatDuration(avgHoldLoss) : '—';
+
+  // History list
+  const histEl = document.getElementById('closedTradesList');
+  histEl.innerHTML = '';
+  if (!closed.length) {
+    histEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px 0;font-size:13px">No closed trades for this period</div>';
+    return;
+  }
+
+  // Sort newest first
+  [...closed].sort((a, b) => b.id - a.id).forEach(trade => {
+    const sign  = trade.pnl >= 0 ? '+' : '';
+    const color = trade.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const inst  = INSTRUMENTS[trade.inst];
+    const div   = document.createElement('div');
+    div.className = 'trade-history-item';
+    div.innerHTML = `
+      <div style="flex:1;min-width:0">
+        <span class="side-badge ${trade.side}"> ${trade.side}</span>
+        <span class="inst-tag ${inst.symbol}" style="margin-left:4px"> ${inst.symbol}</span>
+        <div style="font-size:13px;margin-top:5px">${trade.entry} → ${trade.exit}</div>
+        <div style="font-size:11px;color:var(--muted)">${trade.date} ${trade.time} • ${trade.lot} lot ${trade.duration ? ' • ⏱ ' + formatDuration(trade.duration) : ''}</div>
+        ${trade.note ? `<div class="trade-note-display"> ${trade.note}</div>` : ''}
+      </div>
+      <div style="font-size:20px;font-weight:700;font-family:monospace;color:${color};margin-left:10px;white-space:nowrap"> ${sign}$${trade.pnl.toFixed(2)}</div>
+    `;
+    histEl.appendChild(div);
+  });
+}
+
+// ============================================================
+//  WEEKLY SUMMARY
+// ============================================================
+function sendWeeklySummary(silent = false) {
+  // Get Monday–Sunday of the current week
+  const now       = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const monday    = new Date(now);
+  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  function isThisWeek(trade) {
+    const d = new Date(trade.date + ' ' + now.getFullYear());
+    return d >= monday && d <= sunday;
+  }
+
+  // Gather all closed trades this week
+  let allTrades = [];
+  instKeys().forEach(k => {
+    allTrades = allTrades.concat(
+      state[k].trades.filter(t => t.status === 'closed' && isThisWeek(t))
+    );
+  });
+
+  if (!allTrades.length) {
+    showToast('No closed trades this week', 'warn');
+    return;
+  }
+
+  // Per-instrument breakdown
+  function instStats(key) {
+    const trades    = allTrades.filter(t => t.inst === key);
+    const wins      = trades.filter(t => t.pnl > 0);
+    const losses    = trades.filter(t => t.pnl <= 0);
+    const totalPips = trades.reduce((s, t) => s + calcPips(t, t.exit), 0);
+    const grossW    = wins.reduce((s, t) => s + t.pnl, 0);
+    const grossL    = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+    const pf        = grossL === 0 ? (grossW > 0 ? '∞' : '—') : (grossW / grossL).toFixed(2);
+    const winRate   = trades.length ? Math.round((wins.length / trades.length) * 100) : 0;
+    return { trades, wins, losses, totalPips, pf, winRate };
+  }
+
+  const xau = instStats('xau');
+  const btc = instStats('btc');
+
+  // Best and worst day — in pips
+  const dayMap = {};
+  allTrades.forEach(t => {
+    dayMap[t.date] = (dayMap[t.date] || 0) + calcPips(t, t.exit);
+  });
+  const days     = Object.entries(dayMap);
+  const bestDay  = days.reduce((a, b) => b[1] > a[1] ? b : a);
+  const worstDay = days.reduce((a, b) => b[1] < a[1] ? b : a);
+
+  // Overall stats
+  const totalPips = allTrades.reduce((s, t) => s + calcPips(t, t.exit), 0);
+  const totalWins = allTrades.filter(t => t.pnl > 0);
+  const winRate   = Math.round((totalWins.length / allTrades.length) * 100);
+  const grossW    = totalWins.reduce((s, t) => s + t.pnl, 0);
+  const grossL    = Math.abs(allTrades.filter(t => t.pnl <= 0).reduce((s, t) => s + t.pnl, 0));
+  const pf        = grossL === 0 ? (grossW > 0 ? '∞' : '—') : (grossW / grossL).toFixed(2);
+  const pipSign   = totalPips >= 0 ? '+' : '';
+  const pipEmoji  = totalPips >= 0 ? '🟢' : '🔴';
+
+  const monStr = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const sunStr = sunday.toLocaleDateString('en-US',  { month: 'short', day: 'numeric' });
+
+  let msg = `📅 <b>WEEKLY REVIEW</b>\n`;
+  msg    += `🗓 ${monStr} – ${sunStr}\n`;
+  msg    += `━━━━━━━━━━━━━━━━\n`;
+
+  if (xau.trades.length > 0) {
+    const s = xau.totalPips >= 0 ? '+' : '';
+    msg += `\n🥇 <b>XAUUSD</b>\n`;
+    msg += `• Trades: ${xau.trades.length} · ✅ ${xau.wins.length}W / ❌ ${xau.losses.length}L\n`;
+    msg += `• Win Rate: <b>${xau.winRate}%</b> · PF: <b>${xau.pf}</b>\n`;
+    msg += `• Pips: <b>${s}${xau.totalPips} pips</b>\n`;
+  }
+
+  if (btc.trades.length > 0) {
+    const s = btc.totalPips >= 0 ? '+' : '';
+    msg += `\n₿ <b>BTCUSD</b>\n`;
+    msg += `• Trades: ${btc.trades.length} · ✅ ${btc.wins.length}W / ❌ ${btc.losses.length}L\n`;
+    msg += `• Win Rate: <b>${btc.winRate}%</b> · PF: <b>${btc.pf}</b>\n`;
+    msg += `• Pips: <b>${s}${btc.totalPips} pips</b>\n`;
+  }
+
+  msg += `\n━━━━━━━━━━━━━━━━\n`;
+  msg += `${pipEmoji} <b>Week Total: ${pipSign}${totalPips} pips</b>\n`;
+  msg += `📈 Win Rate: <b>${winRate}%</b> (${totalWins.length}/${allTrades.length})\n`;
+  msg += `⚖️ Profit Factor: <b>${pf}</b>\n`;
+  msg += `━━━━━━━━━━━━━━━━\n`;
+  const bd = bestDay[1] >= 0 ? '+' : '';
+  const wd = worstDay[1] >= 0 ? '+' : '';
+  msg += `🏆 Best Day: <b>${bestDay[0]}</b> (${bd}${bestDay[1]} pips)\n`;
+  msg += `💀 Worst Day: <b>${worstDay[0]}</b> (${wd}${worstDay[1]} pips)\n`;
+  msg += `━━━━━━━━━━━━━━━━\n`;
+  msg += `📡 @wanpis_t_official`;
+
+  sendTelegram(msg);
+  if (!silent) showToast('Weekly summary sent!', 'buy');
+}
+
+// ============================================================
+//  DAILY SUMMARY
+// ============================================================
+function sendDailySummary() {
+  const today   = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const dayFull = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  function todayStats(instKey) {
+    const trades  = state[instKey].trades.filter(t => t.status === 'closed' && t.date === today);
+    const wins    = trades.filter(t => t.pnl > 0);
+    const losses  = trades.filter(t => t.pnl <= 0);
+    // Total pips = sum of signed pip moves per trade
+    const totalPips = trades.reduce((s, t) => s + calcPips(t, t.exit), 0);
+    return { trades, wins, losses, totalPips };
+  }
+
+  const xau = todayStats('xau');
+  const btc = todayStats('btc');
+
+  const allTrades = xau.trades.length + btc.trades.length;
+  if (allTrades === 0) { showToast('No closed trades today', 'warn'); return; }
+
+  const allWins    = xau.wins.length + btc.wins.length;
+  const totalPips  = xau.totalPips + btc.totalPips;
+  const winRate    = Math.round((allWins / allTrades) * 100);
+  const pipSign    = totalPips >= 0 ? '+' : '';
+  const pipEmoji   = totalPips >= 0 ? '🟢' : '🔴';
+
+  let msg = `📊 <b>DAILY SUMMARY</b>\n`;
+  msg    += `📅 ${dayFull}\n`;
+  msg    += `━━━━━━━━━━━━━━━━\n`;
+
+  if (xau.trades.length > 0) {
+    const s = xau.totalPips >= 0 ? '+' : '';
+    msg += `\n🥇 <b>XAUUSD</b>\n`;
+    msg += `• Trades: ${xau.trades.length}  ✅ ${xau.wins.length}W / ❌ ${xau.losses.length}L\n`;
+    msg += `• Pips: <b>${s}${xau.totalPips} pips</b>\n`;
+  }
+
+  if (btc.trades.length > 0) {
+    const s = btc.totalPips >= 0 ? '+' : '';
+    msg += `\n₿ <b>BTCUSD</b>\n`;
+    msg += `• Trades: ${btc.trades.length}  ✅ ${btc.wins.length}W / ❌ ${btc.losses.length}L\n`;
+    msg += `• Pips: <b>${s}${btc.totalPips} pips</b>\n`;
+  }
+
+  msg += `\n━━━━━━━━━━━━━━━━\n`;
+  msg += `${pipEmoji} <b>Total: ${pipSign}${totalPips} pips</b>\n`;
+  msg += `📈 Win Rate: <b>${winRate}%</b> (${allWins}/${allTrades})\n`;
+  msg += `━━━━━━━━━━━━━━━━\n`;
+  msg += `📡 @wanpis_t_official`;
+
+  sendTelegram(msg);
+  showToast('Daily summary sent!', 'buy');
+}
+
+// ============================================================
+//  EXPORT TO CSV
+// ============================================================
+function exportCSV(scope) {
+  // Gather all trades across both instruments
+  let trades = [];
+  instKeys().forEach(k => {
+    trades = trades.concat(state[k].trades.filter(t => t.status === 'closed'));
+  });
+
+  if (scope === 'today') {
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    trades = trades.filter(t => t.date === today);
+  }
+
+  if (!trades.length) {
+    showToast(scope === 'today' ? 'No closed trades today' : 'No trades to export', 'warn');
+    return;
+  }
+
+  // Sort chronologically oldest → newest
+  trades.sort((a, b) => a.id - b.id);
+
+  // CSV header — TradingView-compatible column names where possible
+  const headers = [
+    'Date', 'Time', 'Instrument', 'Side',
+    'Entry', 'Exit', 'Stop Loss', 'Lot Size',
+    'P/L ($)', 'P/L Result', 'Duration', 'Notes'
+  ];
+
+  function escapeCell(val) {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    // Wrap in quotes if contains comma, quote, or newline
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const rows = trades.map(t => {
+    const inst     = INSTRUMENTS[t.inst];
+    const result   = t.pnl > 0 ? 'WIN' : t.pnl < 0 ? 'LOSS' : 'BREAKEVEN';
+    const pnlFmt   = (t.pnl >= 0 ? '+' : '') + t.pnl.toFixed(2);
+    const dur      = t.duration ? formatDuration(t.duration) : '';
+    const note     = t.note || '';
+
+    return [
+      t.date,
+      t.time,
+      inst.label,
+      t.side,
+      t.entry,
+      t.exit !== null ? t.exit : '',
+      t.sl,
+      t.lot,
+      pnlFmt,
+      result,
+      dur,
+      note
+    ].map(escapeCell).join(',');
+  });
+
+  const csv      = [headers.join(','), ...rows].join('\r\n');
+  const blob     = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url      = URL.createObjectURL(blob);
+  const today    = new Date().toISOString().slice(0, 10);
+  const filename = scope === 'today'
+    ? `trades_${today}.csv`
+    : `trades_all_${today}.csv`;
+
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+
+  showToast(`Exported ${trades.length} trade ${trades.length > 1 ? 's' : ''}`, 'buy');
+}
+
+// ============================================================
+//  UTILS
+// ============================================================
+function updateDateDisplays() {
+  const str = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  document.querySelectorAll('.header-date').forEach(el => el.textContent = str);
+}
+
+function showToast(msg, type = 'info', withUndo = false) {
+  const toast    = document.getElementById('toast');
+  const toastMsg = document.getElementById('toastMsg');
+  const toastUndo = document.getElementById('toastUndo');
+
+  toastMsg.textContent = msg;
+  toastUndo.style.display = withUndo ? 'inline' : 'none';
+
+  toast.style.background = type === 'buy'  ? 'var(--green)'
+                         : type === 'sell' ? 'var(--red)'
+                         : type === 'warn' ? 'var(--warn)'
+                         : 'var(--accent2)';
+  toast.style.color = (type === 'buy' || type === 'warn') ? '#0a0f1e' : '#fff';
+  toast.classList.add('show');
+
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+    // If undo wasn't used, commit the pending delete
+    if (withUndo && pendingDelete) {
+      commitDelete();
+    }
+  }, withUndo ? 5000 : 2800);
+}
+
+// ============================================================
+//  HAPTIC FEEDBACK
+// ============================================================
+function haptic(pattern = [10]) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch(e) {}
+}
+
+// ============================================================
+//  SWIPE-TO-DELETE
+// ============================================================
+let deletingTradeId = null;
+
+function attachSwipe(wrapper, tradeId) {
+  const item  = wrapper.querySelector('.trade-log-item');
+  const bg    = wrapper.querySelector('.delete-bg');
+  let startX  = 0, curX = 0, dragging = false;
+  const THRESHOLD = 72;
+
+  function onStart(e) {
+    startX   = e.touches ? e.touches[0].clientX : e.clientX;
+    curX     = 0;
+    dragging = true;
+    item.style.transition = 'none';
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const dx = (e.touches ? e.touches[0].clientX : e.clientX) - startX;
+    if (dx > 0) return; // only left swipe
+    curX = dx;
+    const clamped = Math.max(dx, -THRESHOLD - 20);
+    item.style.transform = `translateX(${clamped}px)`;
+    bg.classList.toggle('visible', Math.abs(clamped) > 30);
+    e.preventDefault();
+  }
+
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    item.style.transition = 'transform 0.25s ease';
+    if (Math.abs(curX) >= THRESHOLD) {
+      // Commit swipe — show delete confirm
+      wrapper.classList.add('swiped');
+      bg.classList.add('visible');
+      haptic([15, 60, 25]);
+      openDeleteModal(tradeId);
+    } else {
+      // Snap back
+      item.style.transform = 'translateX(0)';
+      bg.classList.remove('visible');
+      wrapper.classList.remove('swiped');
+    }
+  }
+
+  item.addEventListener('touchstart', onStart, { passive: true });
+  item.addEventListener('touchmove',  onMove,  { passive: false });
+  item.addEventListener('touchend',   onEnd);
+  // Mouse fallback for desktop testing
+  item.addEventListener('mousedown',  onStart);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup',   onEnd);
+}
+
+function openDeleteModal(tradeId) {
+  deletingTradeId = tradeId;
+  // Build a short description for the confirm dialog
+  let trade = null;
+  for (const k of instKeys()) {
+    trade = state[k].trades.find(t => t.id === tradeId);
+    if (trade) break;
+  }
+  const inst  = trade ? INSTRUMENTS[trade.inst] : null;
+  const label = trade ? `${trade.side} ${inst.label} @ ${trade.entry}` : 'this trade';
+  document.getElementById('deleteModalSub').textContent = `Delete ${label}? This cannot be undone.`;
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function cancelDelete() {
+  document.getElementById('deleteModal').style.display = 'none';
+  deletingTradeId = null;
+  renderTrades(); // snap all items back
+}
+
+// pendingDelete holds { instKey, tradeObj, index } during the 5s undo window
+
+function confirmDelete() {
+  if (deletingTradeId === null) return;
+
+  // Find and remove from state temporarily
+  for (const k of instKeys()) {
+    const idx = state[k].trades.findIndex(t => t.id === deletingTradeId);
+    if (idx !== -1) {
+      const [removed] = state[k].trades.splice(idx, 1);
+      pendingDelete = { instKey: k, trade: removed, index: idx };
+      break;
+    }
+  }
+
+  // Close modal and re-render without the trade
+  document.getElementById('deleteModal').style.display = 'none';
+  deletingTradeId = null;
+  haptic([30]);
+  renderTrades();
+
+  // Show toast with UNDO button — don't save yet
+  showToast('Trade deleted', 'warn', true);
+}
+
+function commitDelete() {
+  // 5 seconds elapsed, no undo — now persist
+  if (!pendingDelete) return;
+  saveData();
+  pendingDelete = null;
+}
+
+function undoDelete() {
+  if (!pendingDelete) return;
+  // Re-insert at original index
+  const { instKey, trade, index } = pendingDelete;
+  state[instKey].trades.splice(index, 0, trade);
+  pendingDelete = null;
+
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  document.getElementById('toast').classList.remove('show');
+
+  haptic([10]);
+  renderTrades();
+  showToast('Restored ✓', 'buy');
+}
+
+// ============================================================
+//  NOTES  — save on blur/enter from any notes textarea
+// ============================================================
+function saveNote(tradeId, value) {
+  for (const k of instKeys()) {
+    const trade = state[k].trades.find(t => t.id === tradeId);
+    if (trade) {
+      trade.note = value.trim();
+      saveData();
+      break;
+    }
+  }
+}
+
+// ============================================================
+//  SETTINGS — persist to localStorage
+// ============================================================
+const SETTINGS_KEY = 'tt_settings';
+let settings = {
+  sheetsWebhook:   '',
+  autoSummaryOn:   false,
+  autoSummaryTime: '20:00',
+  autoSignalUrl:   'http://127.0.0.1:8765/latest-signal',
+  autoSignalOn:    true,
+  tgBotToken:      '', // paste your bot token in Settings — don't hardcode it here
+  tgChatId:        '@wanpis_t_official',
+  tgChatId2:       '',
+  autoTpSlOn:      true,
+  sessionNewsOn:   true
+};
+
+function loadSettings() {
+  try {
+    const s = localStorage.getItem(SETTINGS_KEY);
+    if (s) settings = { ...settings, ...JSON.parse(s) };
+  } catch(e) {}
+
+  // Restore UI
+  const urlInput = document.getElementById('sheetsWebhookUrl');
+  if (urlInput) urlInput.value = settings.sheetsWebhook || '';
+
+  const timeInput = document.getElementById('autoSummaryTime');
+  if (timeInput) timeInput.value = settings.autoSummaryTime || '20:00';
+
+  const signalUrlInput = document.getElementById('autoSignalUrl');
+  if (signalUrlInput) signalUrlInput.value = settings.autoSignalUrl || '';
+
+  // Telegram
+  const tgTokenInput = document.getElementById('tgBotToken');
+  if (tgTokenInput) tgTokenInput.value = settings.tgBotToken || '';
+  const tgChatInput = document.getElementById('tgChatId');
+  if (tgChatInput) tgChatInput.value = settings.tgChatId || '';
+  const tgChatInput2 = document.getElementById('tgChatId2');
+  if (tgChatInput2) tgChatInput2.value = settings.tgChatId2 || '';
+  
+  // Set global vars
+  TG_TOKEN = settings.tgBotToken || '';
+  TG_CHAT_ID = settings.tgChatId || '@wanpis_t_official';
+  TG_CHAT_ID2 = settings.tgChatId2 || '';
+
+  applyAutoSignalToggle();
+
+  applyAutoSummaryToggle();
+  rescheduleAutoSummary();
+
+  applyAutoTpSlToggle();
+
+  applySessionNewsToggle();
+}
+
+function saveSetting(key, value) {
+  settings[key] = value;
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e) {}
+}
+
+// ============================================================
+//  AUTO SUMMARY TOGGLE
+// ============================================================
+function applyAutoSignalToggle() {
+  const on    = settings.autoSignalOn;
+  const track = document.getElementById('autoSignalToggle');
+  const thumb = document.getElementById('autoSignalThumb');
+  if (!track) return;
+  track.style.background = on ? 'var(--green)' : 'var(--border)';
+  thumb.style.left       = on ? '23px' : '3px';
+}
+
+function toggleAutoSignal() {
+  settings.autoSignalOn = !settings.autoSignalOn;
+  saveSetting('autoSignalOn', settings.autoSignalOn);
+  applyAutoSignalToggle();
+  showToast(settings.autoSignalOn ? 'Auto signal bot ON' : 'Auto signal bot OFF',
+            settings.autoSignalOn ? 'buy' : 'warn');
+}
+
+function applyAutoSummaryToggle() {
+  const on    = settings.autoSummaryOn;
+  const track = document.getElementById('autoSummaryToggle');
+  const thumb = document.getElementById('autoSummaryThumb');
+  if (!track) return;
+  track.style.background = on ? 'var(--green)' : 'var(--border)';
+  thumb.style.left       = on ? '23px' : '3px';
+  updateNextSummaryLabel();
+}
+
+function toggleAutoSummary() {
+  settings.autoSummaryOn = !settings.autoSummaryOn;
+  saveSetting('autoSummaryOn', settings.autoSummaryOn);
+  applyAutoSummaryToggle();
+  rescheduleAutoSummary();
+  showToast(settings.autoSummaryOn ? 'Auto summary ON' : 'Auto summary OFF',
+            settings.autoSummaryOn ? 'buy' : 'warn');
+}
+
+function applyAutoTpSlToggle() {
+  const on    = settings.autoTpSlOn;
+  const track = document.getElementById('autoTpSlToggle');
+  const thumb = document.getElementById('autoTpSlThumb');
+  if (!track) return;
+  track.style.background = on ? 'var(--green)' : 'var(--border)';
+  thumb.style.left       = on ? '23px' : '3px';
+  // Price polling for the live-price display always runs regardless of this
+  // toggle (started once in window.onload) — this only gates auto-closing.
+}
+
+function toggleAutoTpSl() {
+  settings.autoTpSlOn = !settings.autoTpSlOn;
+  saveSetting('autoTpSlOn', settings.autoTpSlOn);
+  applyAutoTpSlToggle();
+  showToast(settings.autoTpSlOn ? 'Auto TP/SL tracking ON' : 'Auto TP/SL tracking OFF',
+            settings.autoTpSlOn ? 'buy' : 'warn');
+}
+
+function applySessionNewsToggle() {
+  const on    = settings.sessionNewsOn;
+  const track = document.getElementById('sessionNewsToggle');
+  const thumb = document.getElementById('sessionNewsThumb');
+  if (!track) return;
+  track.style.background = on ? 'var(--green)' : 'var(--border)';
+  thumb.style.left       = on ? '23px' : '3px';
+  if (on) startSessionNewsAlerts(); else stopSessionNewsAlerts();
+}
+
+function toggleSessionNews() {
+  settings.sessionNewsOn = !settings.sessionNewsOn;
+  saveSetting('sessionNewsOn', settings.sessionNewsOn);
+  applySessionNewsToggle();
+  showToast(settings.sessionNewsOn ? 'Session & news alerts ON' : 'Session & news alerts OFF',
+            settings.sessionNewsOn ? 'buy' : 'warn');
+}
+
+function updateNextSummaryLabel() {
+  const el = document.getElementById('nextSummaryLabel');
+  if (!el) return;
+  if (!settings.autoSummaryOn) { el.textContent = 'Auto-send is off'; return; }
+  const next = nextSundayAt(settings.autoSummaryTime || '20:00');
+  const diff = next - Date.now();
+  const h    = Math.floor(diff / 3600000);
+  const d    = Math.floor(h / 24);
+  el.textContent = d > 0
+    ? `Next send: Sunday in ${d}d ${h % 24}h`
+    : `Next send: Sunday in ${h}h`;
+}
+
+function nextSundayAt(timeStr) {
+  const [hh, mm] = timeStr.split(':').map(Number);
+  const now  = new Date();
+  const next = new Date();
+  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+  next.setDate(now.getDate() + daysUntilSunday);
+  next.setHours(hh, mm, 0, 0);
+  return next;
+}
+
+let autoSummaryTimer = null;
+function rescheduleAutoSummary() {
+  if (autoSummaryTimer) clearTimeout(autoSummaryTimer);
+  updateNextSummaryLabel();
+  if (!settings.autoSummaryOn) return;
+
+  const next = nextSundayAt(settings.autoSummaryTime || '20:00');
+  const ms   = next - Date.now();
+  if (ms <= 0) return;
+
+  autoSummaryTimer = setTimeout(() => {
+    sendWeeklySummary(true); // true = silent (no toast)
+    rescheduleAutoSummary(); // schedule the next one
+  }, ms);
+}
+
+// ============================================================
+//  HOME SCREEN SHORTCUTS (deep link via URL hash)
+// ============================================================
+function copyShortcut(side) {
+  const url = window.location.href.split('#')[0] + '#' + side;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast(`${side.toUpperCase()} shortcut copied!`, 'buy');
+  }).catch(() => {
+    // Fallback for browsers that block clipboard
+    prompt('Copy this link and add to home screen:', url);
+  });
+}
+
+function handleDeepLink() {
+  const hash = window.location.hash.replace('#', '').toLowerCase();
+  if (hash === 'buy' || hash === 'sell') {
+    // Clear hash so it doesn't re-trigger on reload
+    history.replaceState(null, '', window.location.pathname);
+    // Small delay to let the app fully render first
+    setTimeout(() => openTradeModal(hash.toUpperCase()), 400);
+  }
+}
+
+// ============================================================
+//  GOOGLE SHEETS SYNC
+// ============================================================
+async function pushToSheets(trade, eventType) {
+  const webhook = settings.sheetsWebhook;
+  if (!webhook) return; // silently skip if not configured
+
+  const inst = INSTRUMENTS[trade.inst];
+  const pips = trade.exit !== null && trade.exit !== undefined
+    ? calcPips(trade, trade.exit) : null;
+
+  const payload = {
+    date:     trade.date,
+    time:     trade.time,
+    inst:     inst.label,
+    side:     trade.side,
+    entry:    trade.entry,
+    exit:     trade.exit || null,
+    sl:       trade.sl,
+    lot:      trade.lot,
+    pnl:      trade.pnl !== undefined ? trade.pnl.toFixed(2) : null,
+    pips:     pips,
+    status:   eventType, // 'OPEN' or 'CLOSED'
+    duration: trade.duration ? formatDuration(trade.duration) : null,
+    note:     trade.note || ''
+  };
+
+  try {
+    await fetch(webhook, {
+      method: 'POST',
+      mode:   'no-cors', // Apps Script requires no-cors
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+  } catch(e) {
+    console.warn('Sheets sync failed:', e);
+  }
+}
+
+async function testSheetsWebhook() {
+  const webhook = document.getElementById('sheetsWebhookUrl').value.trim();
+  if (!webhook) { showToast('Paste your webhook URL first', 'warn'); return; }
+  saveSetting('sheetsWebhook', webhook);
+  showToast('Testing…', 'info');
+
+  try {
+    await fetch(webhook, {
+      method: 'POST',
+      mode:   'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: 'TEST', time: 'TEST', inst: 'XAUUSD',
+        side: 'BUY', entry: 2648, exit: null, sl: 2645,
+        lot: 0.1, pnl: null, pips: null,
+        status: 'TEST', duration: null, note: 'Connection test'
+      })
+    });
+    showToast('Sent! Check your sheet ✓', 'buy');
+  } catch(e) {
+    showToast('Connection failed', 'warn');
+  }
+}
+
+async function testTelegramConnection() {
+  const tokenInput = document.getElementById('tgBotToken').value.trim();
+  const chatInput  = document.getElementById('tgChatId').value.trim();
+  const chatInput2 = document.getElementById('tgChatId2').value.trim();
+  if (!tokenInput) { 
+    showToast('Enter Bot Token first', 'warn'); 
+    return; 
+  }
+  if (!chatInput) { 
+    showToast('Enter Chat ID first', 'warn'); 
+    return; 
+  }
+  
+  saveSetting('tgBotToken', tokenInput);
+  saveSetting('tgChatId', chatInput);
+  saveSetting('tgChatId2', chatInput2);
+  TG_TOKEN    = tokenInput;
+  TG_CHAT_ID  = chatInput;
+  TG_CHAT_ID2 = chatInput2;
+  
+  showToast('Testing Telegram...', 'info');
+
+  const testOne = async (chatId) => {
+    if (!chatId) return null;
+    try {
+      const testMsg = `🧪 <b>Telegram Test from Trade Tracker</b>\n\nConnection successful! ✅\nTime: ${new Date().toLocaleTimeString()}`;
+      const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: testMsg, parse_mode: 'HTML' })
+      });
+      const data = await res.json();
+      return data.ok ? true : (data.description || 'Test failed');
+    } catch(e) {
+      console.error(e);
+      return 'Connection failed';
+    }
+  };
+
+  const [r1, r2] = await Promise.all([ testOne(TG_CHAT_ID), testOne(TG_CHAT_ID2) ]);
+
+  if (!TG_CHAT_ID2) {
+    showToast(r1 === true ? '✅ Telegram connected! Message sent.' : '❌ ' + r1, r1 === true ? 'buy' : 'warn');
+  } else {
+    const ok1 = r1 === true, ok2 = r2 === true;
+    if (ok1 && ok2) {
+      showToast('✅ Both channels connected!', 'buy');
+    } else {
+      showToast(`Ch1: ${ok1 ? '✅' : '❌ ' + r1} · Ch2: ${ok2 ? '✅' : '❌ ' + r2}`, (ok1 && ok2) ? 'buy' : 'warn');
+    }
+  }
+}
+
+// ============================================================
+//  AUTO TP/SL TRACKING — live price from OKX
+// ============================================================
+// XAUT-USDT (Tether Gold) is used as a live proxy for spot XAUUSD, and
+// BTC-USDT for BTCUSD. Public OKX endpoint, no auth/API key needed.
+let priceTrackTimer = null;
+let livePrices = { xau: null, btc: null };
+
+async function fetchOKXPrice(okxSymbol) {
+  try {
+    const res  = await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(okxSymbol)}`);
+    const data = await res.json();
+    if (data.code !== '0' || !data.data || !data.data[0]) return null;
+    const px = parseFloat(data.data[0].last);
+    return isNaN(px) ? null : px;
+  } catch(e) {
+    console.error('OKX price fetch failed', e);
+    return null;
+  }
+}
+
+function updateLivePriceUI(instKey, price) {
+  const el = document.getElementById(instKey === 'xau' ? 'livePriceXau' : 'livePriceBtc');
+  if (el && price != null) {
+    el.textContent = instKey === 'xau' ? price.toFixed(2) : price.toFixed(1);
+  }
+  // Top-of-page bar only shows whichever instrument tab is active
+  if (instKey === currentInst) {
+    const barVal = document.getElementById('livePriceBarValue');
+    const barUpd = document.getElementById('livePriceBarUpdated');
+    if (barVal && price != null) barVal.textContent = price.toFixed(instKey === 'xau' ? 2 : 1);
+    if (barUpd) barUpd.textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+}
+
+async function pollLivePrices() {
+  for (const key of instKeys()) {
+    const inst = INSTRUMENTS[key];
+
+    const price = await fetchOKXPrice(inst.okxSymbol);
+    if (price == null) continue;
+
+    livePrices[key] = price;
+    updateLivePriceUI(key, price);
+
+    if (settings.autoTpSlOn) checkAutoTPSL(key, price);
+  }
+}
+
+function checkAutoTPSL(instKey, price) {
+  const inst = INSTRUMENTS[instKey];
+  const openTrades = state[instKey].trades.filter(t => t.status === 'open');
+
+  openTrades.forEach(trade => {
+    const tpHit = trade.tp != null &&
+      (trade.side === 'BUY' ? price >= trade.tp : price <= trade.tp);
+    const slHit = trade.side === 'BUY' ? price <= trade.sl : price >= trade.sl;
+
+    if (tpHit) {
+      autoCloseTrade(instKey, trade, trade.tp, 'TP');
+    } else if (slHit) {
+      autoCloseTrade(instKey, trade, trade.sl, 'SL');
+    }
+  });
+}
+
+function autoCloseTrade(instKey, trade, exitPrice, reason) {
+  const inst = INSTRUMENTS[instKey];
+
+  trade.exit     = exitPrice;
+  trade.pnl      = calcPnl(trade, exitPrice);
+  trade.status   = 'closed';
+  trade.closedAt = Date.now();
+  trade.duration = trade.openedAt ? trade.closedAt - trade.openedAt : null;
+
+  saveData();
+  renderTrades();
+  haptic(reason === 'TP' ? [10, 40, 20] : [30]);
+
+  const sign = trade.pnl >= 0 ? '+' : '';
+  showToast(`${reason} hit — auto-closed | P/L ${sign}${trade.pnl.toFixed(2)}`, trade.pnl >= 0 ? 'buy' : 'sell');
+
+  const pips     = calcPips(trade, exitPrice);
+  const pipSign  = pips >= 0 ? '+' : '';
+  const sideLabel = trade.side === 'BUY' ? 'Buy' : 'Sell';
+  const tag = reason === 'TP' ? 'TP Hit ✅' : 'SL Hit 🛑';
+
+  const tgMsg =
+    `${inst.label} ${sideLabel} - ${tag}\n\n` +
+    `🏁 Exit: ${fmtPrice(exitPrice, instKey)}\n` +
+    `📊 Result: ${pipSign}${pips} pips\n\n` +
+    `${instHashtag(instKey)}`;
+
+  sendTelegramSticker(randomHitSticker()).then(() => {
+    sendTelegram(tgMsg, trade.tgMsgId);
+  });
+  pushToSheets(trade, 'CLOSED');
+
+  setTimeout(() => checkPersonalBests(trade), 800);
+}
+
+function startPriceTracking() {
+  if (priceTrackTimer) clearInterval(priceTrackTimer);
+  pollLivePrices(); // immediate first check
+  priceTrackTimer = setInterval(pollLivePrices, 15000);
+}
+
+function stopPriceTracking() {
+  if (priceTrackTimer) clearInterval(priceTrackTimer);
+  priceTrackTimer = null;
+}
+
+// ============================================================
+//  SESSIONS & NEWS ALERTS
+// ============================================================
+// Session/overlap times are pure clock math (no network needed).
+// News comes from ForexFactory's public weekly JSON feed — the same
+// feed used by most MT4/MT5 news indicators. USD + High impact only.
+const UTC_OFFSET_HOURS = 10; // user's local offset from UTC
+const NEWS_FEED_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+
+// Shift a UTC instant by the local offset, so reading getUTC* fields
+// off the result gives "local" clock values without touching the
+// device's own timezone setting.
+function toLocalShifted(d) {
+  return new Date(d.getTime() + UTC_OFFSET_HOURS * 3600000);
+}
+
+function formatLocalClock(d) {
+  const s = toLocalShifted(d);
+  let h = s.getUTCHours(), m = s.getUTCMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+function localDateKey(d) {
+  const s = toLocalShifted(d);
+  return `${s.getUTCFullYear()}-${s.getUTCMonth()}-${s.getUTCDate()}`;
+}
+
+// ---- Session / overlap schedule (all times UTC, day 0 = Sunday) ----
+function buildSessionSchedule() {
+  const weekdays = [1, 2, 3, 4, 5]; // Mon-Fri
+  const sched = [];
+  sched.push({ day: 0, hour: 22, min: 0, msg: 'Forex Market Open 🟢\nSydney session begins the week' });
+  [1, 2, 3, 4].forEach(d => sched.push({ day: d, hour: 22, min: 0, msg: 'Sydney Session Open 🟢' }));
+  sched.push({ day: 5, hour: 22, min: 0, msg: 'Forex Market Closed 🔴\nHave a good weekend' });
+  weekdays.forEach(d => sched.push({ day: d, hour: 0,  min: 0, msg: 'Tokyo Session Open 🟢' }));
+  weekdays.forEach(d => sched.push({ day: d, hour: 8,  min: 0, msg: 'London Session Open 🟢\nTokyo/London overlap now 🔥' }));
+  weekdays.forEach(d => sched.push({ day: d, hour: 13, min: 0, msg: 'New York Session Open 🟢\nLondon/NY overlap now 🔥' }));
+  return sched;
+}
+const SESSION_SCHEDULE = buildSessionSchedule();
+
+let lastSessionMinuteKey = null;
+function checkSessionAlerts(now) {
+  const day = now.getUTCDay(), hour = now.getUTCHours(), min = now.getUTCMinutes();
+  const key = `${day}-${hour}-${min}`;
+  if (key === lastSessionMinuteKey) return; // already handled this minute
+  lastSessionMinuteKey = key;
+  const match = SESSION_SCHEDULE.find(s => s.day === day && s.hour === hour && s.min === min);
+  if (match) sendTelegram(match.msg);
+}
+
+// ---- News calendar (USD, High impact only) ----
+let newsCache = []; // [{ title, time: Date }]
+
+function loadNewsCacheFromStorage() {
+  try {
+    const raw = localStorage.getItem('tt_news_cache');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    newsCache = (parsed.events || []).map(e => ({ title: e.title, time: new Date(e.time) }));
+  } catch(e) {}
+}
+
+async function fetchNewsCalendar() {
+  try {
+    const res  = await fetch(NEWS_FEED_URL);
+    const data = await res.json();
+    newsCache = data
+      .filter(e => (e.country === 'USD' || e.currency === 'USD') &&
+                   e.impact && String(e.impact).toLowerCase() === 'high')
+      .map(e => ({ title: e.title || e.event || 'Event', time: new Date(e.date) }))
+      .filter(e => !isNaN(e.time.getTime()));
+    try {
+      localStorage.setItem('tt_news_cache', JSON.stringify({
+        fetchedAt: Date.now(),
+        events: newsCache.map(e => ({ title: e.title, time: e.time.toISOString() }))
+      }));
+    } catch(e) {}
+    return true;
+  } catch(e) {
+    console.error('News calendar fetch failed (CORS or offline?)', e);
+    return false;
+  }
+}
+
+let firedNewsAlerts = new Set();
+try { firedNewsAlerts = new Set(JSON.parse(localStorage.getItem('tt_fired_news') || '[]')); } catch(e) {}
+
+function markNewsFired(key) {
+  firedNewsAlerts.add(key);
+  try { localStorage.setItem('tt_fired_news', JSON.stringify([...firedNewsAlerts])); } catch(e) {}
+}
+
+function checkNewsAlerts(now) {
+  newsCache.forEach(ev => {
+    const diffMin = (ev.time.getTime() - now.getTime()) / 60000;
+    const evKey = ev.title + '_' + ev.time.toISOString();
+    if (diffMin <= 10 && diffMin > 0 && !firedNewsAlerts.has(evKey)) {
+      sendTelegram(`⚠️ USD ${ev.title} in 10 min\n${formatLocalClock(ev.time)} local`);
+      markNewsFired(evKey);
+    }
+  });
+}
+
+let lastDailySummaryDate = localStorage.getItem('tt_last_daily_summary') || '';
+function checkDailySummary(now) {
+  const shifted = toLocalShifted(now);
+  const h = shifted.getUTCHours(), m = shifted.getUTCMinutes();
+  const todayKey = localDateKey(now);
+  if (h === 8 && m === 0 && lastDailySummaryDate !== todayKey) {
+    sendDailyNewsSummary(todayKey);
+  }
+}
+
+function sendDailyNewsSummary(todayKey) {
+  lastDailySummaryDate = todayKey;
+  try { localStorage.setItem('tt_last_daily_summary', todayKey); } catch(e) {}
+
+  const todays = newsCache.filter(ev => localDateKey(ev.time) === todayKey);
+  if (todays.length === 0) return; // no high-impact USD news today — stay quiet
+
+  const msg = `📅 High Impact Today\n\n` +
+    todays.map(ev => `USD - ${ev.title} — ${formatLocalClock(ev.time)}`).join('\n');
+  sendTelegram(msg);
+}
+
+// ---- Master scheduler ----
+let sessionNewsTimer = null;
+let newsRefreshTimer = null;
+
+function startSessionNewsAlerts() {
+  if (sessionNewsTimer) clearInterval(sessionNewsTimer);
+  if (newsRefreshTimer) clearInterval(newsRefreshTimer);
+
+  loadNewsCacheFromStorage();
+  fetchNewsCalendar(); // first pull
+
+  sessionNewsTimer = setInterval(() => {
+    const now = new Date();
+    checkSessionAlerts(now);
+    checkNewsAlerts(now);
+    checkDailySummary(now);
+  }, 20000); // every 20s — fine enough to catch each minute boundary
+
+  newsRefreshTimer = setInterval(fetchNewsCalendar, 60 * 60 * 1000); // hourly re-pull
+}
+
+function stopSessionNewsAlerts() {
+  if (sessionNewsTimer) clearInterval(sessionNewsTimer);
+  if (newsRefreshTimer) clearInterval(newsRefreshTimer);
+  sessionNewsTimer = null;
+  newsRefreshTimer = null;
+}
+
+async function testNewsFeed() {
+  showToast('Checking news feed...', 'info');
+  const ok = await fetchNewsCalendar();
+  if (ok) {
+    showToast(`✅ Feed OK — ${newsCache.length} high-impact USD events this week`, 'buy');
+  } else {
+    showToast('❌ Feed unreachable — sessions still work, news won\'t', 'warn');
+  }
+}
+
+// ============================================================
+//  AUTO-SIGNAL (signal_bot.py integration)
+// ============================================================
+// signal_bot.py runs a tiny local HTTP server (on the same phone, via
+// Termux) that exposes whatever the most recently-detected screenshot
+// signal was, as JSON, at settings.autoSignalUrl. While this page is open
+// in the background, it polls that endpoint every few seconds. When a
+// signal shows up that hasn't been logged yet, it's auto-created as an
+// open trade using the same createTrade() path as a manual entry --
+// lot size still comes from whatever you have configured for the
+// instrument, nothing about manual trading changes.
+//
+// Expected JSON shape from the server:
+//   { "id": "<unique id, e.g. a timestamp>", "side": "BUY"|"SELL",
+//     "entry": 4156.35, "sl": 4160.04, "tp1": 4166.35, "tp2": 4176.35 }
+// "id" is required and must change for every new signal -- it's how we
+// avoid double-logging the same signal across repeated polls.
+
+let lastAutoSignalId = null;
+let autoSignalTimer  = null;
+
+async function checkForAutoSignal() {
+  if (!settings.autoSignalOn || !settings.autoSignalUrl) return;
+
+  try {
+    const res = await fetch(settings.autoSignalUrl, { cache: 'no-store' });
+    if (!res.ok) return;
+    const signal = await res.json();
+    if (!signal || !signal.id) return;
+    if (signal.id === lastAutoSignalId) return; // already logged this one
+
+    lastAutoSignalId = signal.id;
+
+    const side = (signal.side || '').toUpperCase();
+    if (side !== 'BUY' && side !== 'SELL') {
+      console.warn('Auto-signal: unrecognized side', signal);
+      return;
+    }
+    const entry = parseFloat(signal.entry);
+    const sl    = parseFloat(signal.sl);
+    if (!isFinite(entry) || !isFinite(sl)) {
+      console.warn('Auto-signal: bad entry/sl', signal);
+      return;
+    }
+    const tp = signal.tp1 !== undefined ? parseFloat(signal.tp1) : null;
+
+    // This tracker is gold-only, so auto signals always log to 'xau'.
+    createTrade('xau', side, entry, sl, tp);
+    showToast(`Auto-logged ${side} @ ${entry}`, side.toLowerCase());
+  } catch (e) {
+    // Server not running / unreachable -- stay silent, this polls
+    // constantly and a missing local server shouldn't spam toasts.
+  }
+}
+
+function startAutoSignalPolling() {
+  if (autoSignalTimer) clearInterval(autoSignalTimer);
+  autoSignalTimer = setInterval(checkForAutoSignal, 4000);
+}
+
+window.onload = () => {
+  loadData();
+  loadSettings();
+  startElapsedTimer();
+  handleDeepLink();
+  startAutoSignalPolling();
+  startPriceTracking();
+};
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "Wanpis Trade Tracker",
+  "short_name": "TradeTracker",
+  "description": "XAUUSD & BTCUSD trade logger with Telegram alerts",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "shortcuts": [
+    { "name": "New Buy",  "short_name": "Buy",  "url": "./index.html#buy" },
+    { "name": "New Sell", "short_name": "Sell", "url": "./index.html#sell" }
+  ]
+}
