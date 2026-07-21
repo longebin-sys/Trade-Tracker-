@@ -908,7 +908,7 @@ function applyInstrument() {
   document.getElementById('pipValueInfo').innerHTML =
     `Pip size: <b style="color:var(--text)">${inst.pipSize}</b> &nbsp;|&nbsp; ` +
     `Contract: <b style="color:var(--text)">${inst.contractSize} ${inst.symbol === 'XAU' ? 'oz' : 'BTC'}</b> &nbsp;|&nbsp; ` +
-    `1 pip @ current lot = <b style="color:var(--accent2)">\[ {pipValCurrent.toFixed(2)}</b>`;
+    `1 pip @ current lot = <b style="color:var(--accent2)">${pipValCurrent.toFixed(2)}</b>`;
 
   renderTrades();
 }
@@ -992,7 +992,11 @@ function openTradeModal(side) {
   lockBtn.style.borderColor = 'var(--accent2)';
 
   const entryInput = document.getElementById('entryPrice');
-  entryInput.value = inst.defaultEntry.toFixed(inst === INSTRUMENTS.btc ? 0 : 2);
+  const livePrice = livePrices[currentInst];
+  const decimals  = currentInst === 'xau' ? 2 : 1;
+  entryInput.value = livePrice != null
+    ? livePrice.toFixed(decimals)
+    : inst.defaultEntry.toFixed(inst === INSTRUMENTS.btc ? 0 : 2);
   entryInput.oninput = updateSLFromEntry;
   updateSLFromEntry();
 
@@ -1100,9 +1104,12 @@ function openCloseModal(id) {
   document.getElementById('closeModalSub').textContent   = `Entry: ${trade.entry} | Lot: ${trade.lot}`;
 
   const exitInput = document.getElementById('exitPrice');
-  exitInput.value = trade.entry;
+  const livePrice = livePrices[trade.inst];
+  const decimals  = trade.inst === 'xau' ? 2 : 1;
+  const prefillPrice = livePrice != null ? Number(livePrice.toFixed(decimals)) : trade.entry;
+  exitInput.value = prefillPrice;
   exitInput.oninput = updatePnlPreview;
-  updatePnlPreviewFor(trade, trade.entry);
+  updatePnlPreviewFor(trade, prefillPrice);
 
   document.getElementById('closeModal').style.display = 'flex';
   setTimeout(() => exitInput.focus(), 50);
@@ -1224,31 +1231,32 @@ function checkPersonalBests(justClosedTrade) {
     allClosed = allClosed.concat(state[k].trades.filter(t => t.status === 'closed'));
   });
 
-  // 1. LARGEST SINGLE WIN
-  if (justClosedTrade.pnl > 0 && justClosedTrade.pnl > rec.bestSingleWin) {
+  // 1. LARGEST SINGLE WIN (pips)
+  const closedPips = calcPips(justClosedTrade, justClosedTrade.exit);
+  if (closedPips > 0 && closedPips > rec.bestSingleWin) {
     const prev = rec.bestSingleWin;
-    rec.bestSingleWin = justClosedTrade.pnl;
+    rec.bestSingleWin = closedPips;
     milestones.push(
-      `🏆 <b>NEW BIGGEST WIN!</b>\n` +
-      `💰 <b>+${justClosedTrade.pnl.toFixed(2)}</b>${prev > 0 ? ` (previous best: +${prev.toFixed(2)})` : ' — your first win on record!'}`
+      `New Biggest Win 🏆\n\n` +
+      `+${closedPips} pips${prev > 0 ? ` (previous best: +${prev} pips)` : ' — first win on record!'}`
     );
   }
 
-  // 2. BEST SINGLE DAY P/L
+  // 2. BEST SINGLE DAY (pips)
   const today = justClosedTrade.date;
-  const dayPnl = allClosed
+  const dayPips = allClosed
     .filter(t => t.date === today)
-    .reduce((s, t) => s + t.pnl, 0);
+    .reduce((s, t) => s + calcPips(t, t.exit), 0);
 
-  if (dayPnl > rec.bestDayPnl) {
+  if (dayPips > rec.bestDayPnl) {
     const prev = rec.bestDayPnl;
-    rec.bestDayPnl = dayPnl;
+    rec.bestDayPnl = dayPips;
     if (prev > 0) { // only celebrate when beating a real previous record
       milestones.push(
-        `📅 <b>BEST DAY EVER!</b>\n` +
-        `📈 <b>${today}: +${dayPnl.toFixed(2)}</b> (previous best: +${prev.toFixed(2)})`
+        `Best Day Ever 📅\n\n` +
+        `${today}: +${dayPips} pips (previous best: +${prev} pips)`
       );
-    } else if (dayPnl > 0) {
+    } else if (dayPips > 0) {
       // First profitable day — set baseline silently, no message
       // (avoid noise on very first ever trade)
     }
@@ -1265,47 +1273,46 @@ function checkPersonalBests(justClosedTrade) {
     const prev = rec.longestWinStreak;
     rec.longestWinStreak = maxRun;
     milestones.push(
-      `🔥 <b>LONGEST WIN STREAK!</b>\n` +
-      `🎯 <b>${maxRun} wins in a row</b> ${prev >= 3 ? ` (previous best: ${prev})` : ' — new milestone!'}`
+      `Longest Win Streak 🔥\n\n` +
+      `${maxRun} wins in a row${prev >= 3 ? ` (previous best: ${prev})` : ' — new milestone!'}`
     );
   } else if (maxRun > rec.longestWinStreak) {
     rec.longestWinStreak = maxRun; // track silently below threshold of 3
   }
 
-  // 4. FIRST PROFITABLE WEEK
+  // 4. FIRST PROFITABLE WEEK (pips)
   if (!rec.firstProfitableWeek) {
     const now       = new Date();
     const dayOfWeek = now.getDay();
     const monday    = new Date(now);
     monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
     monday.setHours(0, 0, 0, 0);
-    const weekPnl = allClosed
+    const weekPips = allClosed
       .filter(t => {
         const d = new Date(t.date + ' ' + now.getFullYear());
         return d >= monday;
       })
-      .reduce((s, t) => s + t.pnl, 0);
+      .reduce((s, t) => s + calcPips(t, t.exit), 0);
 
-    if (weekPnl > 0) {
+    if (weekPips > 0) {
       rec.firstProfitableWeek = true;
       milestones.push(
-        `🌟 <b>FIRST PROFITABLE WEEK!</b>\n` +
-        `📊 Week P/L so far: <b>+\[ {weekPnl.toFixed(2)}</b>\n` +
-        `Keep the consistency going! 💪`
+        `First Profitable Week 🌟\n\n` +
+        `Week P/L so far: +${weekPips} pips`
       );
     }
   }
 
-  // 5. ROUND-NUMBER DAY MILESTONES ($100, $250, $500, $1000...)
-  const roundMilestones = [100, 250, 500, 1000, 2000, 5000];
+  // 5. ROUND-NUMBER DAY MILESTONES (50, 100, 200, 500, 1000+ pips)
+  const roundMilestones = [50, 100, 200, 500, 1000, 2000];
   roundMilestones.forEach(target => {
-    if (dayPnl >= target) {
-      const key = `day_${today}_ ${target}`;
+    if (dayPips >= target) {
+      const key = `day_${today}_${target}`;
       if (!rec[key]) {
         rec[key] = true;
         milestones.push(
-          `💵 <b> ${target} DAY!</b>\n` +
-          `You've made <b>+\[ {dayPnl.toFixed(2)}</b> today. Keep it clean.`
+          `${target} Pip Day 💵\n\n` +
+          `You've made +${dayPips} pips today`
         );
       }
     }
@@ -1317,12 +1324,7 @@ function checkPersonalBests(justClosedTrade) {
   // Fire each milestone to Telegram with a 1.2s gap so messages don't bunch
   milestones.forEach((msg, i) => {
     setTimeout(() => {
-      const full =
-        `🎖 ━━━━━━━━━━━━━━━━\n` +
-        msg + `\n` +
-        `🎖 ━━━━━━━━━━━━━━━━\n` +
-        `📡 @wanpis_t_official`;
-      sendTelegram(full);
+      sendTelegram(msg);
     }, i * 1200);
   });
 }
@@ -1893,27 +1895,27 @@ function sendWeeklySummary(silent = false) {
     const s = xau.totalPips >= 0 ? '+' : '';
     msg += `\n🥇 <b>XAUUSD</b>\n`;
     msg += `• Trades: ${xau.trades.length} · ✅ ${xau.wins.length}W / ❌ ${xau.losses.length}L\n`;
-    msg += `• Win Rate: <b>${xau.winRate}%</b> · PF: <b> ${xau.pf}</b>\n`;
-    msg += `• Pips: <b>${s} ${xau.totalPips} pips</b>\n`;
+    msg += `• Win Rate: <b>${xau.winRate}%</b> · PF: <b>${xau.pf}</b>\n`;
+    msg += `• Pips: <b>${s}${xau.totalPips} pips</b>\n`;
   }
 
   if (btc.trades.length > 0) {
     const s = btc.totalPips >= 0 ? '+' : '';
     msg += `\n₿ <b>BTCUSD</b>\n`;
     msg += `• Trades: ${btc.trades.length} · ✅ ${btc.wins.length}W / ❌ ${btc.losses.length}L\n`;
-    msg += `• Win Rate: <b>${btc.winRate}%</b> · PF: <b> ${btc.pf}</b>\n`;
-    msg += `• Pips: <b>${s} ${btc.totalPips} pips</b>\n`;
+    msg += `• Win Rate: <b>${btc.winRate}%</b> · PF: <b>${btc.pf}</b>\n`;
+    msg += `• Pips: <b>${s}${btc.totalPips} pips</b>\n`;
   }
 
   msg += `\n━━━━━━━━━━━━━━━━\n`;
-  msg += `${pipEmoji} <b>Week Total: ${pipSign} ${totalPips} pips</b>\n`;
-  msg += `📈 Win Rate: <b>${winRate}%</b> ( ${totalWins.length}/${allTrades.length})\n`;
+  msg += `${pipEmoji} <b>Week Total: ${pipSign}${totalPips} pips</b>\n`;
+  msg += `📈 Win Rate: <b>${winRate}%</b> (${totalWins.length}/${allTrades.length})\n`;
   msg += `⚖️ Profit Factor: <b>${pf}</b>\n`;
   msg += `━━━━━━━━━━━━━━━━\n`;
   const bd = bestDay[1] >= 0 ? '+' : '';
   const wd = worstDay[1] >= 0 ? '+' : '';
-  msg += `🏆 Best Day: <b>${bestDay[0]}</b> ( ${bd}${bestDay[1]} pips)\n`;
-  msg += `💀 Worst Day: <b>${worstDay[0]}</b> ( ${wd}${worstDay[1]} pips)\n`;
+  msg += `🏆 Best Day: <b>${bestDay[0]}</b> (${bd}${bestDay[1]} pips)\n`;
+  msg += `💀 Worst Day: <b>${worstDay[0]}</b> (${wd}${worstDay[1]} pips)\n`;
   msg += `━━━━━━━━━━━━━━━━\n`;
   msg += `📡 @wanpis_t_official`;
 
@@ -1957,19 +1959,19 @@ function sendDailySummary() {
     const s = xau.totalPips >= 0 ? '+' : '';
     msg += `\n🥇 <b>XAUUSD</b>\n`;
     msg += `• Trades: ${xau.trades.length}  ✅ ${xau.wins.length}W / ❌ ${xau.losses.length}L\n`;
-    msg += `• Pips: <b>${s} ${xau.totalPips} pips</b>\n`;
+    msg += `• Pips: <b>${s}${xau.totalPips} pips</b>\n`;
   }
 
   if (btc.trades.length > 0) {
     const s = btc.totalPips >= 0 ? '+' : '';
     msg += `\n₿ <b>BTCUSD</b>\n`;
     msg += `• Trades: ${btc.trades.length}  ✅ ${btc.wins.length}W / ❌ ${btc.losses.length}L\n`;
-    msg += `• Pips: <b>${s} ${btc.totalPips} pips</b>\n`;
+    msg += `• Pips: <b>${s}${btc.totalPips} pips</b>\n`;
   }
 
   msg += `\n━━━━━━━━━━━━━━━━\n`;
-  msg += `${pipEmoji} <b>Total: ${pipSign} ${totalPips} pips</b>\n`;
-  msg += `📈 Win Rate: <b>${winRate}%</b> ( ${allWins}/${allTrades})\n`;
+  msg += `${pipEmoji} <b>Total: ${pipSign}${totalPips} pips</b>\n`;
+  msg += `📈 Win Rate: <b>${winRate}%</b> (${allWins}/${allTrades})\n`;
   msg += `━━━━━━━━━━━━━━━━\n`;
   msg += `📡 @wanpis_t_official`;
 
@@ -2248,7 +2250,7 @@ let settings = {
   autoSummaryTime: '20:00',
   autoSignalUrl:   'http://127.0.0.1:8765/latest-signal',
   autoSignalOn:    true,
-  tgBotToken:      '8998570096:AAEtijdxIzog8Mq9noBP8d_rjYidp0Ix7co', // default
+  tgBotToken:      '', // paste your bot token in Settings — don't hardcode it here
   tgChatId:        '@wanpis_t_official',
   tgChatId2:       '',
   autoTpSlOn:      true,
