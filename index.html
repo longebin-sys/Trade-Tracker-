@@ -2517,12 +2517,13 @@ async function testSheetsWebhook() {
 function showSheetsGuide() {
   alert(
     'Google Sheets Setup:\n\n' +
-    '1. Create a new Google Sheet\n' +
-    '2. Extensions → Apps Script\n' +
-    '3. Paste a doPost(e) script that appends e.postData.contents as a row\n' +
-    '4. Deploy → New deployment → Web app\n' +
-    '5. Execute as "Me", access "Anyone"\n' +
-    '6. Copy the Web App URL into the field above'
+    '1. Go to script.google.com → New project\n' +
+    '2. Delete the placeholder code, paste in the sheets_sync.gs code (ask Claude for it again if needed)\n' +
+    '3. Deploy → New deployment → Web app\n' +
+    '4. Execute as "Me", access "Anyone"\n' +
+    '5. Authorize when prompted\n' +
+    '6. Copy the Web App URL into the field above\n\n' +
+    'A spreadsheet called "TradeTracker Log" gets created automatically the first time a trade logs — no need to make one yourself.'
   );
 }
 
