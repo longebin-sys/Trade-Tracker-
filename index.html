@@ -1337,9 +1337,20 @@ function renderTrades() {
   container.innerHTML = '';
   const trades = state[currentInst].trades;
   const inst   = INSTRUMENTS[currentInst];
-  let closedPnl = 0;
 
-  trades.forEach(trade => {
+  // Full-history stats stay based on ALL trades, not just what's displayed
+  let closedPnl = 0;
+  trades.forEach(t => { if (t.status === 'closed') closedPnl += t.pnl; });
+
+  // Open trades always show (in full) since they still need managing —
+  // closed ones cap at 2 here, full history lives on the Tracker page
+  const openTrades   = trades.filter(t => t.status === 'open');
+  const closedTrades = trades.filter(t => t.status === 'closed');
+  const shownClosed  = closedTrades.slice(0, 2);
+  const hiddenCount  = closedTrades.length - shownClosed.length;
+  const displayList  = [...openTrades, ...shownClosed];
+
+  displayList.forEach(trade => {
     // ---- outer swipe wrapper ----
     const wrapper = document.createElement('div');
     wrapper.className = 'swipe-wrapper';
@@ -1378,7 +1389,6 @@ function renderTrades() {
       if (noteTxt) {
         // Show as styled quote underneath (visible even collapsed)
       }
-      closedPnl += trade.pnl;
     } else {
       const elapsedMs  = trade.openedAt ? Date.now() - trade.openedAt : null;
       const elapsedTxt = elapsedMs ? formatDuration(elapsedMs) : '—';
@@ -1437,6 +1447,14 @@ function renderTrades() {
     // Attach swipe-to-delete touch/mouse handler
     attachSwipe(wrapper, trade.id);
   });
+
+  if (hiddenCount > 0) {
+    const link = document.createElement('div');
+    link.style.cssText = 'text-align:center;margin-top:10px;font-size:12px;color:var(--accent2);cursor:pointer';
+    link.textContent = `View all closed trades (${hiddenCount} more) →`;
+    link.onclick = () => switchTab('tracker');
+    container.appendChild(link);
+  }
 
   document.getElementById('summaryTrades').textContent = trades.length;
   document.getElementById('summaryPnl').textContent    = '$' + closedPnl.toFixed(2);
