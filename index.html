@@ -239,7 +239,7 @@
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="changeLot(-1)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer;font-size:16px">−</button>
         <input id="lotSize" type="number" min="0.01" max="10000" step="0.01" value="0.10"
-          oninput="saveLotSize()"
+          onchange="saveLotSize()"
           style="width:90px;background:var(--bg);color:var(--text);padding:8px 6px;border-radius:8px;border:1px solid var(--border);font-family:monospace;font-size:15px;font-weight:600;text-align:center">
         <button onclick="changeLot(1)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer;font-size:16px">+</button>
       </div>
@@ -252,7 +252,9 @@
       <div>Default SL (pips)</div>
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="changeDefaultPips(-50)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer">−</button>
-        <div id="defaultPips" style="font-family:monospace;min-width:50px;text-align:center;font-weight:600">300</div>
+        <input id="defaultPips" type="number" inputmode="numeric" value="300"
+          onchange="setDefaultPips(this.value)"
+          style="font-family:monospace;width:64px;text-align:center;font-weight:600;font-size:15px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 4px;color:var(--text)">
         <button onclick="changeDefaultPips(50)" style="width:34px;height:34px;background:var(--border);border:none;border-radius:50%;color:var(--text);cursor:pointer">+</button>
       </div>
     </div>
@@ -910,7 +912,7 @@ function applyInstrument() {
   // Lot & pips
   const decimals = s.lotSize < 1 ? 2 : s.lotSize < 10 ? 1 : 0;
   document.getElementById('lotSize').value = s.lotSize.toFixed(decimals);
-  document.getElementById('defaultPips').textContent = s.defaultPips;
+  document.getElementById('defaultPips').value = s.defaultPips;
 
   // Pip value info (Exness specs)
   const pipValPerLot = inst.pipSize * inst.contractSize;
@@ -951,7 +953,16 @@ function changeDefaultPips(delta) {
   let v = state[currentInst].defaultPips + delta;
   v = Math.max(10, Math.min(5000, v));
   state[currentInst].defaultPips = v;
-  document.getElementById('defaultPips').textContent = v;
+  document.getElementById('defaultPips').value = v;
+  saveData();
+}
+
+function setDefaultPips(raw) {
+  let v = parseInt(raw, 10);
+  if (isNaN(v)) v = state[currentInst].defaultPips; // revert on garbage input
+  v = Math.max(10, Math.min(5000, v));
+  state[currentInst].defaultPips = v;
+  document.getElementById('defaultPips').value = v;
   saveData();
 }
 
@@ -1348,9 +1359,11 @@ function renderTrades() {
   const trades = state[currentInst].trades;
   const inst   = INSTRUMENTS[currentInst];
 
-  // Full-history stats stay based on ALL trades, not just what's displayed
+  // "Today's Summary" should mean today — not all-time
+  const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const todaysTrades = trades.filter(t => t.date === todayStr);
   let closedPnl = 0;
-  trades.forEach(t => { if (t.status === 'closed') closedPnl += t.pnl; });
+  todaysTrades.forEach(t => { if (t.status === 'closed') closedPnl += t.pnl; });
 
   // Open trades always show (in full) since they still need managing —
   // closed ones cap at 2 here, full history lives on the Tracker page
@@ -1466,7 +1479,7 @@ function renderTrades() {
     container.appendChild(link);
   }
 
-  document.getElementById('summaryTrades').textContent = trades.length;
+  document.getElementById('summaryTrades').textContent = todaysTrades.length;
   document.getElementById('summaryPnl').textContent    = '$' + closedPnl.toFixed(2);
   document.getElementById('summaryPnl').style.color    = closedPnl >= 0 ? 'var(--green)' : 'var(--red)';
 }
