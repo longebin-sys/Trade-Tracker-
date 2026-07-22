@@ -1381,12 +1381,14 @@ function renderTrades() {
   todaysTrades.forEach(t => { if (t.status === 'closed') closedPnl += t.pnl; });
 
   // Open trades always show (in full) since they still need managing —
-  // closed ones cap at 2 here, full history lives on the Tracker page
-  const openTrades   = trades.filter(t => t.status === 'open');
-  const closedTrades = trades.filter(t => t.status === 'closed');
-  const shownClosed  = closedTrades.slice(0, 2);
-  const hiddenCount  = closedTrades.length - shownClosed.length;
-  const displayList  = [...openTrades, ...shownClosed];
+  // closed ones only show if they're from today, capped at 2 — anything
+  // from a prior day (or beyond the cap) lives on the Tracker page instead
+  const openTrades       = trades.filter(t => t.status === 'open');
+  const closedTrades     = trades.filter(t => t.status === 'closed');
+  const closedTodayOnly  = closedTrades.filter(t => t.date === todayStr);
+  const shownClosed      = closedTodayOnly.slice(0, 2);
+  const hiddenCount      = closedTrades.length - shownClosed.length;
+  const displayList      = [...openTrades, ...shownClosed];
 
   displayList.forEach(trade => {
     // ---- outer swipe wrapper ----
