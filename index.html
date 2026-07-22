@@ -614,7 +614,8 @@
           🔒 AUTO
         </span>
       </div>
-      <input id="tradeSL" type="number" step="any" readonly style="opacity:0.5;cursor:not-allowed">
+      <input id="tradeSL" type="number" step="any" readonly oninput="updateRiskPreview()" style="opacity:0.5;cursor:not-allowed">
+      <div id="riskPreview" style="margin-top:10px;font-size:14px;font-weight:700;color:var(--warn);text-align:center"></div>
     </div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeTradeModal()">Cancel</button>
@@ -991,6 +992,7 @@ function toggleSLLock() {
     lockBtn.textContent   = '✏️ MANUAL';
     lockBtn.style.color   = 'var(--warn)';
     lockBtn.style.borderColor = 'var(--warn)';
+    updateRiskPreview();
     setTimeout(() => slInput.focus(), 50);
   }
 }
@@ -1033,6 +1035,19 @@ function updateSLFromEntry() {
   const slDist = s.defaultPips * inst.pipSize;
   const sl = currentSide === 'BUY' ? entry - slDist : entry + slDist;
   document.getElementById('tradeSL').value = sl.toFixed(2);
+  updateRiskPreview();
+}
+
+function updateRiskPreview() {
+  const el = document.getElementById('riskPreview');
+  if (!el) return;
+  const inst  = INSTRUMENTS[currentInst];
+  const s     = state[currentInst];
+  const entry = parseFloat(document.getElementById('entryPrice').value);
+  const sl    = parseFloat(document.getElementById('tradeSL').value);
+  if (isNaN(entry) || isNaN(sl)) { el.textContent = ''; return; }
+  const risk = Math.abs(entry - sl) * inst.contractSize * s.lotSize;
+  el.textContent = `⚠️ Risking $${risk.toFixed(2)} at ${s.lotSize} lot`;
 }
 
 function closeTradeModal() {
