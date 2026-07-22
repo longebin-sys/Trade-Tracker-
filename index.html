@@ -1340,7 +1340,7 @@ function checkPersonalBests(justClosedTrade) {
   }
 
   // 5. ROUND-NUMBER DAY MILESTONES (50, 100, 200, 500, 1000+ pips)
-  const roundMilestones = [50, 100, 200, 500, 1000, 2000];
+  const roundMilestones = [1000];
   roundMilestones.forEach(target => {
     if (dayPips >= target) {
       const key = `day_${today}_${target}`;
