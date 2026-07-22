@@ -4,7 +4,7 @@
 // Sheets — always goes straight to the network, never cached, since
 // stale prices/news would be actively harmful here.
 
-const CACHE_NAME = 'tradetracker-v1';
+const CACHE_NAME = 'tradetracker-v2';
 const APP_SHELL = [
   './',
   './index.html',
