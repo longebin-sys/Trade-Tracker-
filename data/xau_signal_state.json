@@ -1,0 +1,10 @@
+{
+  "30m_last_alert_ts": 0,
+  "2h_last_alert_ts": 0,
+  "last_30m_alert_time": null,
+  "last_2h_alert_time": null,
+  "last_run": null,
+  "last_source": null,
+  "last_error": null,
+  "last_error_notification": 0
+}
