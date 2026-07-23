@@ -508,6 +508,26 @@
     </div>
   </div>
 
+  <!-- XAUUSD Breakout Alerts -->
+  <div class="panel" style="margin-top:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📈 XAUUSD Breakout Alerts</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+      This runs on GitHub Actions, not this page — checks NR4/NR7 on 4H candles, confirms breakouts on 30m/2h candle closes, every 30 minutes. These buttons don't trigger that script directly, but let you verify the same logic and message format from here.
+    </div>
+    <button onclick="checkBreakoutRange()"
+      style="width:100%;padding:11px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
+      🔍 Check Current Range
+    </button>
+    <div id="breakoutRangeResult" style="margin-top:10px;font-size:12px;font-family:monospace;color:var(--text);line-height:1.6;display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px"></div>
+    <button onclick="sendTestBreakoutAlert()"
+      style="margin-top:10px;width:100%;padding:11px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer">
+      📨 Send Test Alert
+    </button>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      To test the real automated version: go to your repo's <b>Actions</b> tab → "XAUUSD Breakout Alerts" → <b>Run workflow</b>, then check Telegram.
+    </div>
+  </div>
+
   <!-- Weekend Auto-Summary -->
   <div class="panel" style="margin-top:12px">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">📅 Auto Weekly Summary</div>
@@ -2977,6 +2997,103 @@ async function testNewsFeed() {
     showToast(`✅ Feed OK — ${newsCache.length} high-impact USD events this week`, 'buy');
   } else {
     showToast('❌ Feed unreachable — sessions still work, news won\'t', 'warn');
+  }
+}
+
+// ============================================================
+//  XAUUSD BREAKOUT ALERTS — browser-side preview/test only
+//  (the real automated check runs via GitHub Actions, see
+//  breakout_alert.py — this just mirrors the same math so you
+//  can sanity-check it from here)
+// ============================================================
+async function fetchOKXCandles(bar, limit) {
+  try {
+    const url = `https://www.okx.com/api/v5/market/candles?instId=XAUT-USDT&bar=${bar}&limit=${limit}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code !== '0') return [];
+    const rows = data.data.slice().reverse(); // OKX gives newest-first
+    return rows.map(r => ({
+      ts: parseInt(r[0]),
+      high: parseFloat(r[2]),
+      low: parseFloat(r[3]),
+      confirm: r[8] === '1'
+    }));
+  } catch(e) {
+    console.error('OKX candles fetch failed', e);
+    return [];
+  }
+}
+
+function getPatternRangeFromCandles(candles) {
+  const closed = candles.filter(c => c.confirm);
+  if (closed.length < 7) return null;
+
+  const ranges    = closed.map(c => c.high - c.low);
+  const last      = closed[closed.length - 1];
+  const lastRange = ranges[ranges.length - 1];
+  const isNr7     = lastRange === Math.min(...ranges.slice(-7));
+  const isNr4     = (lastRange === Math.min(...ranges.slice(-4))) && !isNr7;
+
+  if (!(isNr7 || isNr4)) return null;
+
+  return {
+    rh: last.high,
+    rl: last.low,
+    mid: (last.high + last.low) / 2,
+    pattern: isNr7 ? 'NR7' : 'NR4'
+  };
+}
+
+async function checkBreakoutRange() {
+  const resultEl = document.getElementById('breakoutRangeResult');
+  resultEl.style.display = 'block';
+  resultEl.textContent = 'Checking…';
+
+  const candles = await fetchOKXCandles('4H', 15);
+  if (candles.length === 0) {
+    resultEl.textContent = '❌ Could not reach OKX right now.';
+    return;
+  }
+
+  const pattern = getPatternRangeFromCandles(candles);
+  if (!pattern) {
+    resultEl.textContent = 'No active NR4/NR7 range right now — waiting for the next narrow-range 4H bar.';
+    return;
+  }
+
+  const price = livePrices.xau;
+  const priceLine = price != null ? `\nCurrent price: ${price.toFixed(2)}` : '';
+  let status = 'Watching for a candle close through either level.';
+  if (price != null) {
+    if (price > pattern.rh) status = '⚠️ Price is currently ABOVE the range high — an up breakout may confirm on the next candle close.';
+    else if (price < pattern.rl) status = '⚠️ Price is currently BELOW the range low — a down breakout may confirm on the next candle close.';
+  }
+
+  resultEl.textContent =
+`Pattern: ${pattern.pattern}
+Range High: ${pattern.rh.toFixed(2)}
+Range Low: ${pattern.rl.toFixed(2)}
+Mid: ${pattern.mid.toFixed(2)}${priceLine}
+
+${status}`;
+}
+
+async function sendTestBreakoutAlert() {
+  showToast('Sending test alert…', 'info');
+  const msg =
+`▲ XAUUSD UP Breakout (TEST)
+
+Pattern: NR7
+Price: 4120.00
+TP1: 4145.00
+TP2: 4165.00
+TP3: 4185.00`;
+  const ids = await sendTelegram(msg);
+  if (ids && ids.c1) {
+    showToast('Test alert sent ✓', 'buy');
+  } else {
+    showToast('Failed to send — check your Telegram settings', 'warn');
   }
 }
 
