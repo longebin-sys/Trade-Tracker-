@@ -1,0 +1,59 @@
+name: XAU Breakout Alert
+
+on:
+  schedule:
+    - cron: "2,32 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_telegram:
+        description: "Set to 1 to send a Telegram test message"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xau-breakout-alert
+  cancel-in-progress: true
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests yfinance pandas
+
+      - name: Run XAU breakout alert
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_ID_2: ${{ secrets.TELEGRAM_CHAT_ID_2 }}
+          TEST_TELEGRAM: ${{ github.event.inputs.test_telegram || '0' }}
+        run: python scripts/xau_breakout_alert.py
+
+      - name: Commit state file
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add data/xau_signal_state.json
+
+          if git diff --staged --quiet; then
+            echo "No state changes"
+          else
+            git commit -m "Update XAU signal state [skip ci]"
+            git push
+          fi
