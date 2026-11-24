@@ -405,6 +405,85 @@
     padding: 18px 10px;
   }
 
+  /* Fit the screen: no sideways scrolling */
+  html, body { max-width: 100%; overflow-x: hidden; }
+  .wrap { width: 100%; }
+  .row .field { min-width: 0; }
+  .result-card .result-headline {
+    flex-wrap: wrap !important;
+    gap: 6px 10px !important;
+    justify-content: space-around !important;
+  }
+  .result-card .result-headline > div { min-width: 0; }
+  .result-card .result-headline .value { font-size: 0.72rem; }
+  .pos-grid > div { min-width: 0; }
+
+  /* Pop-out for Close all */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 100;
+  }
+  .modal {
+    width: 100%;
+    max-width: 340px;
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .modal h2 {
+    margin: 0 0 10px;
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+  }
+
+  .acct-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px solid var(--hairline);
+    text-align: center;
+  }
+  .acct-strip > div { min-width: 0; }
+  .acct-strip .al { font-size: 0.5rem; color: var(--ink-dim); margin-bottom: 2px; white-space: nowrap; }
+  .acct-strip .av { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; word-break: break-all; }
+  .mini-toggle {
+    display: inline-flex;
+    background: var(--panel-raised);
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .mini-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--ink-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .mini-toggle button.active { background: var(--gold); color: #1a1712; font-weight: 700; }
+  .split {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--gold-bright);
+    margin-top: 2px;
+    padding-top: 5px;
+    border-top: 1px solid var(--hairline);
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
   .wanpis-mark {
     position: fixed;
     bottom: 14px;
@@ -441,6 +520,15 @@
     <h1>Position <span>Margin</span></h1>
     <p>Exness leverage calculator — equity, instrument, and lot size in, required margin out.</p>
   </header>
+
+  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+    <span style="font-size:0.7rem; color:var(--ink-dim);">Instrument</span>
+    <div class="mini-toggle" id="instToggle">
+      <button data-inst="XAUUSD" class="active">XAUUSD</button>
+      <button data-inst="BTCUSD">BTCUSD</button>
+      <button data-inst="XAGUSD">XAGUSD</button>
+    </div>
+  </div>
 
   <div class="tab-nav" id="tabNav">
     <button data-tab="calc" class="active">Calculator</button>
@@ -593,68 +681,60 @@
 
   <div id="positionsView" style="display:none;">
 
-    <div class="card" style="margin-bottom:8px;">
-      <div class="row">
-        <div class="field">
-          <label for="livePrice">Live price (USD)</label>
-          <input type="number" id="livePrice" step="any" placeholder="e.g. 4300">
-        </div>
-        <div class="field">
-          <label>&nbsp;</label>
-          <button id="useCalcPrice" class="btn-secondary">Use calculator price</button>
-        </div>
-      </div>
-      <div class="mini-note">Used to value any position left with no close price (i.e. still open).</div>
-    </div>
-
     <div class="result-card" style="margin-bottom:8px;">
-      <div class="result-headline" style="display:flex; justify-content:center; gap:18px; text-align:center;">
+      <div class="result-headline" style="display:flex; justify-content:center; gap:18px; text-align:center; border-bottom:none; margin-bottom:0; padding-bottom:0;">
         <div>
           <div class="label">Total P/L</div>
           <div class="value" id="totalPL">$0.00</div>
         </div>
         <div>
-          <div class="label">Open</div>
-          <div class="value" id="openCount">0</div>
+          <div class="label">Max lots per trade</div>
+          <div class="mini-toggle" id="maxLotToggle">
+            <button data-max="200" class="active">200</button>
+            <button data-max="100">100</button>
+          </div>
+          <div class="mini-note" id="maxLotNote"></div>
         </div>
         <div>
-          <div class="label">Closed</div>
-          <div class="value" id="closedCount">0</div>
+          <div class="label">Total orders</div>
+          <div class="value" id="totalOrders">0</div>
+          <div class="mini-note" id="orderBreakdown"></div>
         </div>
-        <div>
-          <div class="label">Total lots</div>
-          <div class="value" id="totalLots">0.00</div>
-        </div>
+      </div>
+      <div class="acct-strip">
+        <div><div class="al">Balance</div><div class="av" id="acBalance">—</div></div>
+        <div><div class="al">Equity</div><div class="av" id="acEquity">—</div></div>
+        <div><div class="al">Margin</div><div class="av" id="acMargin">—</div></div>
+        <div><div class="al">Free margin</div><div class="av" id="acFree">—</div></div>
+        <div><div class="al">Margin level</div><div class="av" id="acLevel">—</div></div>
       </div>
     </div>
 
     <div class="card">
+      <div class="row" id="posDirWrap" style="display:none;">
+        <div class="field">
+          <label>Direction (other instrument is open)</label>
+          <div class="mini-toggle" id="posDirToggle"><button data-dir="buy">Buy</button><button data-dir="sell">Sell</button></div>
+        </div>
+      </div>
+      <div class="row" id="posOtherWrap" style="display:none;"></div>
       <div class="row">
         <div class="field">
-          <label>Direction</label>
-          <div class="leverage-toggle" id="posDirToggle">
-            <button data-dir="buy" class="active">Buy</button>
-            <button data-dir="sell">Sell</button>
-          </div>
-        </div>
-        <div class="field">
-          <label for="posEntry">Entry price</label>
+          <label for="posEntry">Entry price (buy/sell is detected automatically)</label>
           <input type="number" id="posEntry" step="any" placeholder="e.g. 4300">
         </div>
       </div>
       <div class="row">
         <div class="field">
           <label for="posLots">Lots</label>
-          <input type="number" id="posLots" step="0.01" placeholder="e.g. 0.03">
+          <input type="number" id="posLots" step="0.01" placeholder="auto (MDR 40%)">
+          <div class="mini-note" id="posLotsHint"></div>
+          <div class="split" id="posSplit" style="display:none;"></div>
         </div>
         <div class="field">
           <label for="posClose">Close price (optional)</label>
           <input type="number" id="posClose" step="any" placeholder="leave blank if open">
         </div>
-      </div>
-      <div class="field">
-        <label for="posNote">Note (optional)</label>
-        <input type="text" id="posNote" placeholder="e.g. add-on after breakout">
       </div>
       <button id="addPositionBtn" class="btn-primary">+ Add position</button>
     </div>
@@ -662,6 +742,17 @@
     <div id="positionsList"></div>
 
     <div class="field" style="margin-top:4px;">
+      <button id="closeAllBtn" class="btn-primary" style="margin-bottom:8px;">Close all open trades</button>
+      <div id="closeAllBox" class="modal-bg">
+        <div class="modal">
+          <h2>Close all open trades</h2>
+          <div id="closeAllFields"></div>
+          <div class="row" style="margin-top:12px;">
+            <button id="closeAllCancel" class="btn-secondary">Cancel</button>
+            <button id="closeAllConfirm" class="btn-primary">Close all</button>
+          </div>
+        </div>
+      </div>
       <button id="clearPositionsBtn" class="btn-secondary">Clear all positions</button>
     </div>
 
@@ -679,7 +770,14 @@
 <div class="wanpis-mark"><span class="dot"></span>Wanpis</div>
 
 <script>
-  // Gold (XAUUSD) only — fixed at 100 oz per lot
+  // Instrument: XAUUSD = 100 oz per lot, BTCUSD = 1 BTC per lot (confirm in your Exness terminal)
+  let instrument = 'XAUUSD';
+  const INST = {
+    XAUUSD: { cs: 100, label: 'GOLD' },    // 100 oz per lot
+    BTCUSD: { cs: 1, label: 'BTC' },       // 1 BTC per lot (unverified)
+    XAGUSD: { cs: 5000, label: 'SILVER' }  // 5,000 oz per lot (Exness spec — confirm in your terminal)
+  };
+  function CS(inst) { return INST[inst || instrument].cs; }
   const priceEl = document.getElementById('price');
   const lotsEl = document.getElementById('lots');
   const tpEl = document.getElementById('tp');
@@ -709,7 +807,7 @@
   }
 
   function getContractSize() {
-    return 100;
+    return CS();
   }
 
   function render() {
@@ -998,26 +1096,122 @@
     });
   });
 
-  const livePriceEl = document.getElementById('livePrice');
-  const useCalcPriceBtn = document.getElementById('useCalcPrice');
-  const posDirBtns = document.querySelectorAll('#posDirToggle button');
   const posEntryEl = document.getElementById('posEntry');
   const posLotsEl = document.getElementById('posLots');
   const posCloseEl = document.getElementById('posClose');
-  const posNoteEl = document.getElementById('posNote');
   const addPositionBtn = document.getElementById('addPositionBtn');
   const positionsListEl = document.getElementById('positionsList');
   const clearPositionsBtn = document.getElementById('clearPositionsBtn');
 
-  let positions = []; // {id, dir, entry, lots, close(number|null), note}
-  let posDirection = 'buy';
+  let positions = []; // {id, inst, dir, entry, lots, close, eq, lev, so}
+  let otherPrices = { XAUUSD: '', BTCUSD: '', XAGUSD: '' }; // "price now" of instruments that are NOT selected
+  let newDirChoice = null; // Buy/Sell pick when a new instrument is added next to an open one
+  const instLabel = i => INST[i].label;
+  const isOpenPos = p => p.close === null || p.close === undefined || isNaN(p.close);
+  const thrPct = () => (accountTypeEl.value.split(',').map(Number)[0]) || 0;
 
-  function computePL(pos, livePrice) {
-    const hasClose = pos.close !== null && pos.close !== undefined && !isNaN(pos.close);
-    const closeVal = hasClose ? pos.close : livePrice;
+  function openTrades(inst) {
+    return positions.filter(p => isOpenPos(p) && (!inst || p.inst === inst));
+  }
+  function lastEntryOf(inst) {
+    for (let i = positions.length - 1; i >= 0; i--) if (positions[i].inst === inst) return positions[i].entry;
+    return null;
+  }
+  // No live price. Selected instrument: the Entry you are typing (else its latest entry).
+  // The other instrument: the "price now" box (else its latest entry).
+  function markFor(inst) {
+    if (inst === instrument) {
+      const e = parseFloat(posEntryEl.value);
+      if (!isNaN(e) && e > 0) return e;
+      return lastEntryOf(inst);
+    }
+    const o = parseFloat(otherPrices[inst]);
+    if (!isNaN(o) && o > 0) return o;
+    return lastEntryOf(inst);
+  }
+
+  function dirFromPrice(firstEntry, price) {
+    if (price === null || isNaN(price) || price === firstEntry) return null;
+    return price < firstEntry ? 'sell' : 'buy';
+  }
+  function effDir(pos, mark) { return pos.dir || dirFromPrice(pos.entry, mark); }
+
+  // Direction offered when the selected instrument has nothing open but the other one does.
+  function defaultDirChoice() {
+    const open = openTrades();
+    const k = open.find(p => p.dir);
+    if (k) return k.dir;
+    if (open.length) { const d = effDir(open[0], markFor(open[0].inst)); if (d) return d; }
+    return 'buy';
+  }
+  function currentDirChoice() { return newDirChoice || defaultDirChoice(); }
+  function needsDirToggle() { return openTrades(instrument).length === 0 && openTrades().length > 0; }
+
+  function dirForNewTrade(entry, inst) {
+    const open = openTrades(inst);
+    if (open.length) {
+      const known = open.find(p => p.dir);
+      if (known) return known.dir;
+      return dirFromPrice(open[0].entry, entry);
+    }
+    if (openTrades().length === 0) return null; // very first trade: pending
+    return currentDirChoice();
+  }
+
+  function closedPL() {
+    return positions.filter(p => !isOpenPos(p)).reduce((t, p) => t + (computePL(p) || 0), 0);
+  }
+  function balanceNow() { return (parseFloat(equityEl.value) || 0) + closedPL(); }
+
+  function stopOutPrice(pos, dir) {
+    const thr = thrPct();
+    const lev = pos.lev || getLeverageFor(parseFloat(equityEl.value) || 0);
+    const eq = pos.eq !== undefined ? pos.eq : (parseFloat(equityEl.value) || 0);
+    const unitMove = pos.lots * CS(pos.inst);
+    if (!(lev > 0) || !(unitMove > 0)) return null;
+    const margin = unitMove * pos.entry / lev;
+    const plNeeded = margin * (thr / 100) - eq;
+    const price = dir === 'buy' ? pos.entry + plNeeded / unitMove : pos.entry - plNeeded / unitMove;
+    return (isFinite(price) && price > 0) ? price : null;
+  }
+
+  // Price of `inst` where the whole account hits stop-out, with the other instrument held at its current price.
+  function accountStopOutPrice(inst, dir) {
+    const openX = openTrades(inst);
+    const L = openX.reduce((t, p) => t + p.lots, 0);
+    if (!(L > 0) || !dir) return null;
+    const thr = thrPct();
+    const balance = balanceNow();
+    const levDefault = getLeverageFor(balance > 0 ? balance : 1);
+    const margin = openTrades().reduce((t, p) => t + p.lots * CS(p.inst) * p.entry / (p.lev || levDefault), 0);
+    const floatOther = openTrades().filter(p => p.inst !== inst).reduce((t, p) => t + (computePL(p) || 0), 0);
+    const S = openX.reduce((t, p) => t + p.lots * p.entry, 0);
+    const cs = CS(inst);
+    const target = (thr / 100) * margin - balance - floatOther;
+    const price = dir === 'sell' ? (S * cs - target) / (L * cs) : (target + S * cs) / (L * cs);
+    return (isFinite(price) && price > 0) ? price : null;
+  }
+
+  function fmtPrice(n) { return n === null ? '—' : '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+
+  function stopOutText(pos) {
+    if (pos.so) return fmtPrice(pos.so);
+    const dir = effDir(pos, markFor(pos.inst));
+    if (dir) return fmtPrice(stopOutPrice(pos, dir));
+    return 'Sell ' + fmtPrice(stopOutPrice(pos, 'sell')) + ' / Buy ' + fmtPrice(stopOutPrice(pos, 'buy'));
+  }
+
+  function floatingAt() {
+    return openTrades().reduce((t, p) => { const pl = computePL(p); return pl !== null ? t + pl : t; }, 0);
+  }
+
+  function computePL(pos) {
+    const closeVal = isOpenPos(pos) ? markFor(pos.inst) : pos.close;
     if (closeVal === null || closeVal === undefined || isNaN(closeVal)) return null;
-    const unitMove = pos.lots * 100; // XAUUSD, 100 oz/lot, matches calculator tab
-    return pos.dir === 'buy' ? (closeVal - pos.entry) * unitMove : (pos.entry - closeVal) * unitMove;
+    const dir = effDir(pos, closeVal);
+    if (!dir) return 0;
+    const unitMove = pos.lots * CS(pos.inst);
+    return dir === 'buy' ? (closeVal - pos.entry) * unitMove : (pos.entry - closeVal) * unitMove;
   }
 
   function fmtSignedUSD(n) {
@@ -1025,61 +1219,66 @@
     return (n >= 0 ? '+$' : '-$') + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  function renderPositions() {
-    const livePrice = parseFloat(livePriceEl.value);
-    const liveVal = isNaN(livePrice) ? null : livePrice;
+  function syncExtras() {
+    const dirWrap = document.getElementById('posDirWrap');
+    const showDir = needsDirToggle();
+    dirWrap.style.display = showDir ? '' : 'none';
+    if (showDir) {
+      const c = currentDirChoice();
+      dirWrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.getAttribute('data-dir') === c));
+    }
+    const others = Object.keys(INST).filter(i => i !== instrument && openTrades(i).length > 0);
+    const wrap = document.getElementById('posOtherWrap');
+    wrap.style.display = others.length ? '' : 'none';
+    const key = others.join(',');
+    if (wrap.getAttribute('data-key') !== key) {
+      wrap.setAttribute('data-key', key);
+      wrap.innerHTML = others.map(i => `<div class="field"><label>${i} price now (for floating profit)</label><input type="number" step="any" data-inst="${i}"></div>`).join('');
+    }
+    wrap.querySelectorAll('input').forEach(el => {
+      const i = el.getAttribute('data-inst');
+      el.placeholder = String(lastEntryOf(i) ?? '');
+      if (document.activeElement !== el) el.value = otherPrices[i] || '';
+    });
+  }
 
-    let totalPL = 0;
-    let anyPL = false;
-    let openCount = 0;
-    let closedCount = 0;
-    let totalLots = 0;
+  function renderPositions() {
+    let totalPL = 0, anyPL = false, ordersOpen = 0, ordersClosed = 0;
 
     if (positions.length === 0) {
       positionsListEl.innerHTML = '<div class="pos-empty">No positions yet — add your first entry above.</div>';
     } else {
       let html = '';
-      // newest first
       [...positions].reverse().forEach(pos => {
-        const isOpen = pos.close === null || pos.close === undefined || isNaN(pos.close);
-        const pl = computePL(pos, liveVal);
+        const isOpen = isOpenPos(pos);
+        const mark = markFor(pos.inst);
+        const pl = computePL(pos);
         if (pl !== null) { totalPL += pl; anyPL = true; }
-        if (isOpen) openCount++; else closedCount++;
-        totalLots += pos.lots;
-
+        if (isOpen) ordersOpen += orderCount(pos.lots, pos.inst); else ordersClosed += orderCount(pos.lots, pos.inst);
+        const d = effDir(pos, isOpen ? mark : pos.close);
+        const sp = splitText(pos.lots, pos.inst);
         const plClass = pl === null ? '' : (pl >= 0 ? 'pos' : 'neg');
         html += `
           <div class="pos-item" data-id="${pos.id}">
             <div class="pos-item-top">
               <div class="pos-badges">
-                <span class="pos-badge ${pos.dir}">${pos.dir.toUpperCase()}</span>
+                <span class="pos-badge" style="background:var(--hairline);color:var(--ink);">${instLabel(pos.inst)}</span>
+                <span class="pos-badge ${d || ''}">${d ? d.toUpperCase() : 'BUY/SELL: PENDING'}</span>
                 <span class="pos-status ${isOpen ? 'open' : 'closed'}">${isOpen ? 'OPEN' : 'CLOSED'}</span>
               </div>
               <button class="pos-del" data-id="${pos.id}" title="Delete">✕</button>
             </div>
             <div class="pos-grid">
-              <div>
-                <div class="l">Entry</div>
-                <div class="v">$${pos.entry.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-              </div>
-              <div>
-                <div class="l">Lots</div>
-                <div class="v">${pos.lots.toFixed(2)}</div>
-              </div>
-              <div>
-                <div class="l">${isOpen ? 'Valued at (live)' : 'Close'}</div>
-                <div class="v">${isOpen ? (liveVal !== null ? '$' + liveVal.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—') : '$' + pos.close.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-              </div>
-              <div class="pos-pl" style="grid-column: span 3;">
-                <div class="l">${isOpen ? 'Unrealized P/L' : 'Realized P/L'}</div>
-                <div class="v ${plClass}">${fmtSignedUSD(pl)}</div>
-              </div>
+              <div><div class="l">Entry</div><div class="v">$${pos.entry.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div></div>
+              <div><div class="l">Lots</div><div class="v">${pos.lots.toFixed(2)}</div></div>
+              <div><div class="l">${isOpen ? 'Valued at' : 'Close'}</div><div class="v">${isOpen ? (mark !== null ? '$' + mark.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—') : '$' + pos.close.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div></div>
+              <div class="pos-pl"><div class="l">${isOpen ? 'Unrealized P/L' : 'Realized P/L'}</div><div class="v ${plClass}">${fmtSignedUSD(pl)}</div></div>
+              <div style="grid-column: span 2;"><div class="l">Stop-out price</div><div class="v" style="color:var(--rust);">${stopOutText(pos)}</div></div>
+              ${sp ? `<div class="split" style="grid-column: span 3;">Open as ${sp}</div>` : ''}
             </div>
-            ${pos.note ? `<div class="pos-note">${escapeHtml(pos.note)}</div>` : ''}
           </div>`;
       });
       positionsListEl.innerHTML = html;
-
       positionsListEl.querySelectorAll('.pos-del').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-id');
@@ -1092,35 +1291,225 @@
 
     document.getElementById('totalPL').textContent = anyPL ? fmtSignedUSD(totalPL) : '$0.00';
     document.getElementById('totalPL').style.color = !anyPL ? '' : (totalPL >= 0 ? 'var(--teal)' : 'var(--rust)');
-    document.getElementById('openCount').textContent = openCount;
-    document.getElementById('closedCount').textContent = closedCount;
-    document.getElementById('totalLots').textContent = totalLots.toFixed(2);
+    document.getElementById('totalOrders').textContent = ordersOpen + ordersClosed;
+    document.getElementById('orderBreakdown').textContent = (ordersOpen + ordersClosed) ? `open ${ordersOpen} · closed ${ordersClosed}` : '';
+
+    syncExtras();
+    updateAccountStrip();
+    updatePosLots();
+    updatePosSplit();
   }
+
+  function fmtUSD0(n) {
+    if (!isFinite(n)) return '—';
+    return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  function updateAccountStrip() {
+    const balance = balanceNow();
+    const equity = balance + floatingAt();
+    const margin = openTrades().reduce((t, p) => {
+      const lev = p.lev || getLeverageFor(equity);
+      return t + (lev > 0 ? p.lots * CS(p.inst) * p.entry / lev : 0);
+    }, 0);
+    const free = equity - margin;
+    const level = margin > 0 ? (equity / margin) * 100 : null;
+    const [stopOutPct, callPct] = accountTypeEl.value.split(',').map(Number);
+
+    document.getElementById('acBalance').textContent = fmtUSD0(balance);
+    document.getElementById('acEquity').textContent = fmtUSD0(equity);
+    document.getElementById('acMargin').textContent = fmtUSD0(margin);
+    const freeEl = document.getElementById('acFree');
+    freeEl.textContent = fmtUSD0(free);
+    freeEl.style.color = free < 0 ? 'var(--rust)' : '';
+    const levelEl = document.getElementById('acLevel');
+    levelEl.textContent = level === null ? '—' : level.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '%';
+    levelEl.style.color = level === null ? '' : (level <= Math.max(stopOutPct, callPct) ? 'var(--rust)' : (level < 150 ? 'var(--amber)' : 'var(--teal)'));
+  }
+
+  let maxLot = 200;
+  function isNightGMT() { const h = new Date().getUTCHours(); return h >= 21 || h < 7; }
+  function effectiveMax() { return maxLot; }
+  function splitThreshold(inst) { return inst === 'XAUUSD' ? 1000 : effectiveMax(); }
+
+  function orderCount(lots, inst) {
+    if (!(lots > splitThreshold(inst))) return 1;
+    const units = Math.round(lots * 100);
+    const maxU = effectiveMax() * 100;
+    const full = Math.floor(units / maxU);
+    return full + (units - full * maxU > 0 ? 1 : 0);
+  }
+
+  function splitText(lots, inst) {
+    if (!(lots > splitThreshold(inst))) return '';
+    const units = Math.round(lots * 100);
+    const maxU = effectiveMax() * 100;
+    const full = Math.floor(units / maxU);
+    const rem = units - full * maxU;
+    let t = full + '×' + effectiveMax();
+    if (rem > 0) t += ' + 1×' + (rem / 100).toFixed(2);
+    return t;
+  }
+
+  function updatePosSplit() {
+    const el = document.getElementById('posSplit');
+    const t = splitText(parseFloat(posLotsEl.value), instrument);
+    el.style.display = t ? '' : 'none';
+    el.textContent = t ? 'Open as ' + t : '';
+  }
+
+  const instBtns = document.querySelectorAll('#instToggle button');
+  function syncInstToggle() {
+    instBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-inst') === instrument));
+  }
+  instBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const next = btn.getAttribute('data-inst');
+      if (next === instrument) return;
+      instrument = next;
+      newDirChoice = null;
+      syncInstToggle();
+      posEntryEl.value = '';
+      posLotsEl.value = '';
+      render();
+      renderPositions();
+      savePositionsState();
+    });
+  });
+
+  document.querySelectorAll('#posDirToggle button').forEach(b => {
+    b.addEventListener('click', () => { newDirChoice = b.getAttribute('data-dir'); renderPositions(); });
+  });
+  document.getElementById('posOtherWrap').addEventListener('input', (e) => {
+    const i = e.target.getAttribute('data-inst');
+    if (!i) return;
+    otherPrices[i] = e.target.value;
+    renderPositions();
+    savePositionsState();
+  });
+
+  const maxLotBtns = document.querySelectorAll('#maxLotToggle button');
+  function syncMaxLotToggle() {
+    maxLotBtns.forEach(b => b.classList.toggle('active', Number(b.getAttribute('data-max')) === maxLot));
+    const note = document.getElementById('maxLotNote');
+    if (note) note.textContent = "";
+  }
+  let lastEffectiveMax = null;
+  setInterval(() => {
+    const e = effectiveMax();
+    if (lastEffectiveMax !== null && e !== lastEffectiveMax) { syncMaxLotToggle(); renderPositions(); }
+    lastEffectiveMax = e;
+  }, 20000);
+  maxLotBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      maxLot = Number(btn.getAttribute('data-max'));
+      syncMaxLotToggle();
+      renderPositions();
+      savePositionsState();
+    });
+  });
+
+  const FIRST_MDR = { XAUUSD: 0.4, BTCUSD: 0.3, XAGUSD: 0.3 }; // first-entry share of max lots
+  const STOP_FRAC = 0.3; // BTC/silver: stop-out distance costs 30% of that instrument's floating profit
+  const SUB_STOP_DIST = 30; // XAUUSD: later trades get a stop-out $30 (3000 pips) from entry
+
+  // Gold: fixed $30. BTC: the first BTC trade's own 40%-MDR stop-out distance (kept for later BTC trades);
+  // if BTC is added next to an open gold trade, the distance a 40% MDR first BTC trade would have.
+  function stopDist(inst, p, lev) {
+    if (inst === 'XAUUSD') return SUB_STOP_DIST;
+    const thr = thrPct();
+    const sameOpen = openTrades(inst);
+    if (sameOpen.length) {
+      // BTC / silver follow-up entries: stop-out distance = the move that costs the existing
+      // trades of this instrument 30% of their floating profit.
+      const fl = sameOpen.reduce((t, x) => t + (computePL(x) || 0), 0);
+      const units = sameOpen.reduce((t, x) => t + x.lots * CS(inst), 0);
+      if (!(fl > 0) || !(units > 0)) return null;
+      return (STOP_FRAC * fl) / units;
+    }
+    if (!(p > 0) || !(lev > 0)) return null;
+    return (1 - FIRST_MDR[inst] * thr / 100) * p / (FIRST_MDR[inst] * lev);
+  }
+
+  function distText(inst, d) {
+    if (inst === 'XAUUSD') return `$${d} (${d * 100} pips)`;
+    return '$' + d.toLocaleString('en-US', { maximumFractionDigits: inst === 'XAGUSD' ? 2 : 0 });
+  }
+
+  function getLeverageFor(eq) {
+    let lev;
+    if (leverageMode === 'auto') lev = equityTier(eq).max;
+    else if (manualLeverageEl.value === 'unlimited') lev = 1000000;
+    else lev = parseFloat(manualLeverageEl.value);
+    if (newsCapEl.checked && lev > 200) lev = 200;
+    return lev;
+  }
+
+  // First trade (nothing open anywhere): 40% MDR of account balance.
+  // Any later trade, in EITHER instrument: sized from total floating profit only so the account's
+  // stop-out sits the stop distance away from this entry, capped by free margin.
+  function updatePosLots() {
+    if (document.activeElement === posLotsEl) return;
+    const hintEl = document.getElementById('posLotsHint');
+    const inst = instrument;
+    const cs = CS(inst);
+    const calcPrice = parseFloat(priceEl.value);
+    const mark = markFor(inst);
+    const p = mark !== null ? mark : calcPrice;
+    const open = openTrades();
+    const isSub = open.length > 0;
+    const balance = balanceNow();
+
+    if (!isSub) {
+      if (!(balance > 0) || !(p > 0)) { posLotsEl.value = ''; hintEl.textContent = 'Enter the entry price to auto-size lots.'; return; }
+      const lev = getLeverageFor(balance);
+      posLotsEl.value = ((balance * lev) / (cs * p) * FIRST_MDR[inst]).toFixed(2);
+      hintEl.textContent = `First trade: MDR ${FIRST_MDR[inst] * 100}% of ${fmtUSD(balance)} @ ${p}`;
+      return;
+    }
+
+    const floating = floatingAt();
+    if (!(floating > 0)) { posLotsEl.value = ''; hintEl.textContent = 'No floating profit yet — nothing to risk on the next trade.'; return; }
+    if (!(p > 0)) { posLotsEl.value = ''; hintEl.textContent = 'Enter the entry price to auto-size lots.'; return; }
+    const dir = dirForNewTrade(p, inst);
+    if (!dir) { posLotsEl.value = ''; hintEl.textContent = 'Enter a price different from the first entry.'; return; }
+    const thr = thrPct();
+    const realEq = balance + floating;
+    const levNew = getLeverageFor(realEq);
+    const dist = stopDist(inst, p, levNew);
+    if (!(dist > 0)) { posLotsEl.value = ''; hintEl.textContent = 'No floating profit on this instrument to size from.'; return; }
+    const pStar = dir === 'sell' ? p + dist : p - dist;
+    const floatStar = open.reduce((t, tr) => {
+      if (tr.inst !== inst) return t + (computePL(tr) || 0); // other instrument held at its current price
+      return t + (dir === 'buy' ? (pStar - tr.entry) : (tr.entry - pStar)) * tr.lots * cs;
+    }, 0);
+    const marginOld = open.reduce((t, tr) => t + tr.lots * CS(tr.inst) * tr.entry / (tr.lev || levNew), 0);
+    let lots = (floatStar - (thr / 100) * marginOld) / (cs * (dist + (thr / 100) * p / levNew));
+    let capped = false;
+    const freeMargin = realEq - marginOld;
+    const maxAffordable = freeMargin > 0 ? (freeMargin * levNew) / (cs * p) : 0;
+    if (lots > maxAffordable) { lots = maxAffordable; capped = true; }
+    lots = Math.floor(lots * 100) / 100;
+    if (!(lots >= 0.01)) {
+      posLotsEl.value = '';
+      hintEl.textContent = capped ? 'Not enough free margin for another trade.' : `Floating profit would be gone before a ${distText(inst, dist)} move — no safe size.`;
+      return;
+    }
+    posLotsEl.value = lots.toFixed(2);
+    const crossNote = openTrades(inst).length === 0 ? ` (other instrument's profit used)` : '';
+    hintEl.textContent = `Floating profit ${fmtUSD(floating)} only${crossNote} — account stop-out ${distText(inst, dist)} away @ ${p}` + (capped ? ' · capped by free margin' : '');
+  }
+
+  ['input', 'change', 'click', 'focusout'].forEach(evt =>
+    document.addEventListener(evt, () => setTimeout(() => { updatePosLots(); updatePosSplit(); }, 0)));
+
+  posEntryEl.addEventListener('input', renderPositions);
 
   function escapeHtml(s) {
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
   }
-
-  posDirBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      posDirBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      posDirection = btn.getAttribute('data-dir');
-    });
-  });
-
-  useCalcPriceBtn.addEventListener('click', () => {
-    livePriceEl.value = priceEl.value;
-    renderPositions();
-    savePositionsState();
-  });
-
-  livePriceEl.addEventListener('input', () => {
-    renderPositions();
-    savePositionsState();
-  });
 
   addPositionBtn.addEventListener('click', () => {
     const entry = parseFloat(posEntryEl.value);
@@ -1136,20 +1525,72 @@
     posEntryEl.style.borderColor = 'var(--hairline)';
     posLotsEl.style.borderColor = 'var(--hairline)';
 
-    positions.push({
+    const inst = instrument;
+    const hadOpen = openTrades().length > 0;
+    const eqAtOpen = hadOpen ? floatingAt() : balanceNow();
+    const levAtOpen = getLeverageFor(eqAtOpen);
+    const newDir = dirForNewTrade(entry, inst);
+    if (newDir) openTrades(inst).forEach(p => { if (!p.dir) p.dir = newDir; });
+
+    const newPos = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      dir: posDirection,
+      inst: inst,
+      dir: newDir,
+      eq: eqAtOpen,
+      lev: levAtOpen,
       entry: entry,
       lots: lots,
-      close: (close !== null && !isNaN(close)) ? close : null,
-      note: posNoteEl.value.trim()
-    });
+      close: (close !== null && !isNaN(close)) ? close : null
+    };
+    positions.push(newPos);
+    if (hadOpen && newDir && newPos.close === null) {
+      const so = accountStopOutPrice(inst, newDir);
+      if (so !== null) newPos.so = so;
+    }
 
     posEntryEl.value = '';
     posLotsEl.value = '';
     posCloseEl.value = '';
-    posNoteEl.value = '';
+    newDirChoice = null;
 
+    renderPositions();
+    savePositionsState();
+  });
+
+  const closeAllBox = document.getElementById('closeAllBox');
+  const closeAllFields = document.getElementById('closeAllFields');
+
+  document.getElementById('closeAllBtn').addEventListener('click', () => {
+    if (!positions.some(isOpenPos)) return;
+    closeAllFields.innerHTML = '';
+    Object.keys(INST).forEach(i => {
+      if (!openTrades(i).length) return;
+      const wrap = document.createElement('div');
+      wrap.style.marginBottom = '8px';
+      wrap.innerHTML = `<label>${i} close price (USD)</label><input type="number" step="any" data-inst="${i}" placeholder="${i === 'BTCUSD' ? 'e.g. 95000' : (i === 'XAGUSD' ? 'e.g. 50' : 'e.g. 4005')}">`;
+      closeAllFields.appendChild(wrap);
+    });
+    closeAllBox.style.display = 'flex';
+    const first = closeAllFields.querySelector('input');
+    if (first) first.focus();
+  });
+
+  document.getElementById('closeAllCancel').addEventListener('click', () => { closeAllBox.style.display = 'none'; });
+  closeAllBox.addEventListener('click', (e) => { if (e.target === closeAllBox) closeAllBox.style.display = 'none'; });
+
+  document.getElementById('closeAllConfirm').addEventListener('click', () => {
+    const inputs = [...closeAllFields.querySelectorAll('input')];
+    let ok = true;
+    const prices = {};
+    inputs.forEach(inp => {
+      const v = parseFloat(inp.value);
+      if (isNaN(v) || v <= 0) { inp.style.borderColor = 'var(--rust)'; ok = false; }
+      else { inp.style.borderColor = 'var(--hairline)'; prices[inp.getAttribute('data-inst')] = v; }
+    });
+    if (!ok) return;
+    positions.forEach(p => { if (isOpenPos(p) && prices[p.inst]) p.close = prices[p.inst]; });
+    posEntryEl.value = '';
+    closeAllBox.style.display = 'none';
     renderPositions();
     savePositionsState();
   });
@@ -1165,16 +1606,10 @@
 
   function savePositionsState() {
     const activeTab = document.querySelector('#tabNav button.active')?.getAttribute('data-tab') || 'calc';
-    const state = {
-      positions: positions,
-      livePrice: livePriceEl.value,
-      activeTab: activeTab
-    };
+    const state = { positions, maxLot, instrument, otherPrices, activeTab };
     try {
       window.storage.set('positions-state', JSON.stringify(state), false).catch(() => {});
-    } catch (e) {
-      // storage unavailable — positions just won't persist this session
-    }
+    } catch (e) {}
   }
 
   async function loadPositionsState() {
@@ -1182,21 +1617,24 @@
       const result = await window.storage.get('positions-state', false);
       if (result && result.value) {
         const s = JSON.parse(result.value);
-        if (Array.isArray(s.positions)) positions = s.positions;
-        if (s.livePrice !== undefined) livePriceEl.value = s.livePrice;
+        const legacy = s.instrument === 'BTCUSD' ? 'BTCUSD' : 'XAUUSD';
+        if (Array.isArray(s.positions)) { positions = s.positions; positions.forEach(p => { if (!p.inst) p.inst = legacy; }); }
+        if (s.maxLot === 100 || s.maxLot === 200) { maxLot = s.maxLot; }
+        if (s.otherPrices) otherPrices = Object.assign({ XAUUSD: '', BTCUSD: '', XAGUSD: '' }, s.otherPrices);
+        if (INST[s.instrument]) { instrument = s.instrument; syncInstToggle(); }
         if (s.activeTab === 'positions') {
           tabBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === 'positions'));
           calcView.style.display = 'none';
           positionsView.style.display = '';
         }
       }
-    } catch (e) {
-      // no saved positions yet — defaults stay as-is
-    }
+    } catch (e) {}
   }
 
   (async () => {
     await loadPositionsState();
+    syncMaxLotToggle();
+    lastEffectiveMax = effectiveMax();
     renderPositions();
   })();
 </script>
